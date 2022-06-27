@@ -872,11 +872,9 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "serde_v8",
  "sourcemap",
  "tokio",
  "url",
- "v8",
 ]
 
 [[package]]
