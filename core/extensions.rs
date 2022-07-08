@@ -1,4 +1,5 @@
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
+use crate::v8;
 use crate::OpState;
 use anyhow::Error;
 use std::task::Context;
@@ -9,7 +10,7 @@ pub type OpMiddlewareFn = dyn Fn(OpDecl) -> OpDecl;
 pub type OpStateFn = dyn Fn(&mut OpState) -> Result<(), Error>;
 pub type OpEventLoopFn = dyn Fn(&mut OpState, &mut Context) -> bool;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub struct OpDecl {
   pub name: &'static str,
   pub v8_fn_ptr: OpFnRef,

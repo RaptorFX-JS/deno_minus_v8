@@ -1,5 +1,6 @@
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
 
+use crate::{serde_v8, v8};
 use crate::bindings;
 use crate::error::JsError;
 use crate::extensions::OpDecl;
@@ -15,7 +16,6 @@ use crate::PromiseId;
 use anyhow::Error;
 use futures::future::poll_fn;
 use futures::future::Future;
-use futures::future::FutureExt;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use futures::task::AtomicWaker;
@@ -26,6 +26,9 @@ use std::option::Option;
 use std::rc::Rc;
 use std::task::Context;
 use std::task::Poll;
+use v8::backend::JsBackend;
+use v8::Local;
+use v8::Handle;
 
 type PendingOpFuture = OpCall<(PromiseId, OpId, OpResult)>;
 
@@ -42,6 +45,9 @@ pub type GetErrorClassFn = &'static dyn for<'e> Fn(&'e Error) -> &'static str;
 /// by implementing an async function that takes a serde::Deserialize "control argument"
 /// and an optional zero copy buffer, each async Op is tied to a Promise in JavaScript.
 pub struct JsRuntime {
+  // This is an Option<OwnedIsolate> instead of just OwnedIsolate to workaround
+  // a safety issue with SnapshotCreator. See JsRuntime::drop.
+  v8_isolate: Option<v8::OwnedIsolate>,
   extensions: Vec<Extension>,
   event_loop_middlewares: Vec<Box<OpEventLoopFn>>,
 }
@@ -72,8 +78,10 @@ pub(crate) struct JsRuntimeState {
   waker: AtomicWaker,
 }
 
-#[derive(Default)]
 pub struct RuntimeOptions {
+  // The whole point of minus_v8.
+  pub backend: Box<dyn JsBackend>,
+
   /// Allows to map error type to a string "class" used to represent
   /// error in JavaScript.
   pub get_error_class_fn: Option<GetErrorClassFn>,
@@ -81,6 +89,17 @@ pub struct RuntimeOptions {
   /// JsRuntime extensions, not to be confused with ES modules
   /// these are sets of ops and other JS code to be initialized.
   pub extensions: Vec<Extension>,
+}
+
+#[cfg(test)]
+impl Default for RuntimeOptions {
+  fn default() -> Self {
+    Self {
+      backend: Box::new(crate::minus_v8::backend::test::TotallyLegitJSBackend),
+      get_error_class_fn: None,
+      extensions: vec![],
+    }
+  }
 }
 
 impl JsRuntime {
@@ -112,7 +131,7 @@ impl JsRuntime {
 
     let global_context;
     let mut isolate = {
-      let isolate = v8::Isolate::new(params);
+      let isolate = v8::Isolate::new(options.backend);
       let mut isolate = JsRuntime::setup_isolate(isolate);
       {
         let scope = &mut v8::HandleScope::new(&mut isolate);
@@ -143,6 +162,7 @@ impl JsRuntime {
     })));
 
     let mut js_runtime = Self {
+      v8_isolate: Some(isolate),
       event_loop_middlewares: Vec::with_capacity(options.extensions.len()),
       extensions: options.extensions,
     };
@@ -178,8 +198,8 @@ impl JsRuntime {
   }
 
   fn setup_isolate(mut isolate: v8::OwnedIsolate) -> v8::OwnedIsolate {
-    isolate.set_capture_stack_trace_for_uncaught_exceptions(true, 10);
-    isolate.set_promise_reject_callback(bindings::promise_reject_callback);
+    // TODO(minus_v8) promise reject callback
+    // isolate.set_promise_reject_callback(bindings::promise_reject_callback);
     isolate
   }
 
@@ -261,61 +281,13 @@ impl JsRuntime {
     Ok(())
   }
 
-  /// Grab a Global handle to a v8 value returned by the expression
-  pub(crate) fn grab<'s, T>(
-    scope: &mut v8::HandleScope<'s>,
-    root: v8::Local<'s, v8::Value>,
-    path: &str,
-  ) -> Option<v8::Local<'s, T>>
-  where
-    v8::Local<'s, T>: TryFrom<v8::Local<'s, v8::Value>, Error = v8::DataError>,
-  {
-    path
-      .split('.')
-      .fold(Some(root), |p, k| {
-        let p = v8::Local::<v8::Object>::try_from(p?).ok()?;
-        let k = v8::String::new(scope, k)?;
-        p.get(scope, k.into())
-      })?
-      .try_into()
-      .ok()
-  }
-
-  pub(crate) fn grab_global<'s, T>(
-    scope: &mut v8::HandleScope<'s>,
-    path: &str,
-  ) -> Option<v8::Local<'s, T>>
-  where
-    v8::Local<'s, T>: TryFrom<v8::Local<'s, v8::Value>, Error = v8::DataError>,
-  {
-    let context = scope.get_current_context();
-    let global = context.global(scope);
-    Self::grab(scope, global.into(), path)
-  }
-
-  pub(crate) fn ensure_objs<'s>(
-    scope: &mut v8::HandleScope<'s>,
-    root: v8::Local<'s, v8::Object>,
-    path: &str,
-  ) -> Option<v8::Local<'s, v8::Object>> {
-    path.split('.').fold(Some(root), |p, k| {
-      let k = v8::String::new(scope, k)?.into();
-      match p?.get(scope, k) {
-        Some(v) if !v.is_null_or_undefined() => v.try_into().ok(),
-        _ => {
-          let o = v8::Object::new(scope);
-          p?.set(scope, k, o.into());
-          Some(o)
-        }
-      }
-    })
-  }
-
   /// Grabs a reference to core.js' opresolve & syncOpsCache()
   fn init_cbs(&mut self) {
     let scope = &mut self.handle_scope();
-    let recv_cb =
-      Self::grab_global::<v8::Function>(scope, "Deno.core.opresolve").unwrap();
+    let recv_cb = {
+      let cb = scope.backend.grab_function("Deno.core.opresolve").unwrap();
+      unsafe { Local::from_raw(&cb).unwrap() }
+    };
     let recv_cb = v8::Global::new(scope, recv_cb);
     // Put global handles in state
     let state_rc = JsRuntime::state(scope);
@@ -367,9 +339,6 @@ impl JsRuntime {
   }
 
   /// Runs a single tick of event loop
-  ///
-  /// If `wait_for_inspector` is set to true event loop
-  /// will return `Poll::Pending` if there are active inspector sessions.
   pub fn poll_event_loop(
     &mut self,
     cx: &mut Context,
@@ -385,7 +354,8 @@ impl JsRuntime {
       self.resolve_async_ops(cx)?;
       self.drain_nexttick()?;
       self.drain_macrotasks()?;
-      self.check_promise_exceptions()?;
+      // TODO(minus_v8) promise rejection callback
+      // self.check_promise_exceptions()?;
     }
 
     // Event loop middlewares
@@ -445,11 +415,13 @@ pub(crate) fn exception_to_err_result<'s, T>(
   exception: v8::Local<v8::Value>,
   in_promise: bool,
 ) -> Result<T, Error> {
-  let state_rc = JsRuntime::state(scope);
+  // let state_rc = JsRuntime::state(scope);
 
   let is_terminating_exception = scope.is_execution_terminating();
   let mut exception = exception;
 
+  // TODO(minus_v8) promise rejection callback
+  /*
   if is_terminating_exception {
     // TerminateExecution was called. Cancel isolate termination so that the
     // exception can be created..
@@ -473,6 +445,7 @@ pub(crate) fn exception_to_err_result<'s, T>(
         }
       });
   }
+  */
 
   let mut js_error = JsError::from_v8_exception(scope, exception);
   if in_promise {
@@ -492,6 +465,8 @@ pub(crate) fn exception_to_err_result<'s, T>(
 
 // Related to module loading
 impl JsRuntime {
+  // TODO(minus_v8) promise rejection callback
+  /*
   fn check_promise_exceptions(&mut self) -> Result<(), Error> {
     let state_rc = Self::state(self.v8_isolate());
     let mut state = state_rc.borrow_mut();
@@ -515,6 +490,7 @@ impl JsRuntime {
     let exception = v8::Local::new(scope, handle);
     exception_to_err_result(scope, exception, true)
   }
+  */
 
   // Send finished responses to JS
   fn resolve_async_ops(&mut self, cx: &mut Context) -> Result<(), Error> {
@@ -530,7 +506,7 @@ impl JsRuntime {
     // which contains a value OR an error, encoded as a tuple.
     // This batch is received in JS via the special `arguments` variable
     // and then each tuple is used to resolve or reject promises
-    let mut args: Vec<v8::Local<v8::Value>> = vec![];
+    let mut args: Vec<Box<dyn serde_v8::ErasedSerialize>> = vec![];
 
     // Now handle actual ops.
     {
@@ -542,7 +518,7 @@ impl JsRuntime {
         let (promise_id, op_id, resp) = item;
         state.unrefed_ops.remove(&promise_id);
         state.op_state.borrow().tracker.track_async_completed(op_id);
-        args.push(v8::Integer::new(scope, promise_id as i32).into());
+        args.push(Box::new(promise_id as i32));
         args.push(resp.to_v8(scope).unwrap());
       }
     }
@@ -554,7 +530,7 @@ impl JsRuntime {
     let tc_scope = &mut v8::TryCatch::new(scope);
     let js_recv_cb = js_recv_cb_handle.open(tc_scope);
     let this = v8::undefined(tc_scope).into();
-    js_recv_cb.call(tc_scope, this, args.as_slice());
+    js_recv_cb.call_with_serialized(tc_scope, this, args);
 
     match tc_scope.exception() {
       None => Ok(()),
@@ -606,11 +582,6 @@ impl JsRuntime {
 
     if state.borrow().js_nexttick_cbs.is_empty() {
       return Ok(());
-    }
-
-    if !state.borrow().has_tick_scheduled {
-      let scope = &mut self.handle_scope();
-      scope.perform_microtask_checkpoint();
     }
 
     // TODO(bartlomieju): Node also checks for absence of "rejection_to_warn"
@@ -672,14 +643,6 @@ impl JsRealm {
     v8::HandleScope::with_context(runtime.v8_isolate(), &self.0)
   }
 
-  pub fn global_object<'s>(
-    &self,
-    runtime: &'s mut JsRuntime,
-  ) -> v8::Local<'s, v8::Object> {
-    let scope = &mut self.handle_scope(runtime);
-    self.0.open(scope).global(scope)
-  }
-
   /// Executes traditional JavaScript code (traditional = not ES modules) in the
   /// realm's context.
   ///
@@ -700,23 +663,13 @@ impl JsRealm {
   ) -> Result<v8::Global<v8::Value>, Error> {
     let scope = &mut self.handle_scope(runtime);
 
-    let source = v8::String::new(scope, source_code).unwrap();
-    let name = v8::String::new(scope, name).unwrap();
-    let origin = bindings::script_origin(scope, name);
-
     let tc_scope = &mut v8::TryCatch::new(scope);
 
-    let script = match v8::Script::compile(tc_scope, source, Some(&origin)) {
-      Some(script) => script,
-      None => {
-        let exception = tc_scope.exception().unwrap();
-        return exception_to_err_result(tc_scope, exception, false);
-      }
-    };
-
-    match script.run(tc_scope) {
+    match tc_scope.backend.execute_script(name, source_code) {
       Some(value) => {
-        let value_handle = v8::Global::new(tc_scope, value);
+        let value_handle = unsafe {
+          v8::Global::from_raw(&value as *const _).unwrap()
+        };
         Ok(value_handle)
       }
       None => {
@@ -1028,22 +981,6 @@ pub mod tests {
         .execute_script(
           "encode_decode_test.js",
           include_str!("encode_decode_test.js"),
-        )
-        .unwrap();
-      if let Poll::Ready(Err(_)) = runtime.poll_event_loop(cx) {
-        unreachable!();
-      }
-    });
-  }
-
-  #[test]
-  fn test_serialize_deserialize() {
-    run_in_task(|cx| {
-      let (mut runtime, _dispatch_count) = setup(Mode::Async);
-      runtime
-        .execute_script(
-          "serialize_deserialize_test.js",
-          include_str!("serialize_deserialize_test.js"),
         )
         .unwrap();
       if let Poll::Ready(Err(_)) = runtime.poll_event_loop(cx) {
@@ -1417,26 +1354,26 @@ assertEquals(1, notify_return_value);
       futures::task::waker(Arc::new(ArcWakeImpl(awoken_times.clone())));
     let cx = &mut Context::from_waker(&waker);
 
-    assert!(matches!(runtime.poll_event_loop(cx, false), Poll::Pending));
+    assert!(matches!(runtime.poll_event_loop(cx), Poll::Pending));
     assert_eq!(1, MACROTASK.load(Ordering::Relaxed));
     assert_eq!(1, NEXT_TICK.load(Ordering::Relaxed));
     assert_eq!(awoken_times.swap(0, Ordering::Relaxed), 1);
-    assert!(matches!(runtime.poll_event_loop(cx, false), Poll::Pending));
+    assert!(matches!(runtime.poll_event_loop(cx), Poll::Pending));
     assert_eq!(awoken_times.swap(0, Ordering::Relaxed), 1);
-    assert!(matches!(runtime.poll_event_loop(cx, false), Poll::Pending));
+    assert!(matches!(runtime.poll_event_loop(cx), Poll::Pending));
     assert_eq!(awoken_times.swap(0, Ordering::Relaxed), 1);
-    assert!(matches!(runtime.poll_event_loop(cx, false), Poll::Pending));
+    assert!(matches!(runtime.poll_event_loop(cx), Poll::Pending));
     assert_eq!(awoken_times.swap(0, Ordering::Relaxed), 1);
 
     let state_rc = JsRuntime::state(runtime.v8_isolate());
     state_rc.borrow_mut().has_tick_scheduled = false;
     assert!(matches!(
-      runtime.poll_event_loop(cx, false),
+      runtime.poll_event_loop(cx),
       Poll::Ready(Ok(()))
     ));
     assert_eq!(awoken_times.load(Ordering::Relaxed), 0);
     assert!(matches!(
-      runtime.poll_event_loop(cx, false),
+      runtime.poll_event_loop(cx),
       Poll::Ready(Ok(()))
     ));
     assert_eq!(awoken_times.load(Ordering::Relaxed), 0);
@@ -1593,82 +1530,6 @@ assertEquals(1, notify_return_value);
       .unwrap();
     let scope = &mut runtime.handle_scope();
     assert!(r.open(scope).is_undefined());
-  }
-
-  #[test]
-  fn test_op_detached_buffer() {
-    use serde_v8::DetachedBuffer;
-
-    #[op]
-    fn op_sum_take(b: DetachedBuffer) -> Result<u64, anyhow::Error> {
-      Ok(b.as_ref().iter().clone().map(|x| *x as u64).sum())
-    }
-
-    #[op]
-    fn op_boomerang(
-      b: DetachedBuffer,
-    ) -> Result<DetachedBuffer, anyhow::Error> {
-      Ok(b)
-    }
-
-    let ext = Extension::builder()
-      .ops(vec![op_sum_take::decl(), op_boomerang::decl()])
-      .build();
-
-    let mut runtime = JsRuntime::new(RuntimeOptions {
-      extensions: vec![ext],
-      ..Default::default()
-    });
-
-    runtime
-      .execute_script(
-        "test.js",
-        r#"
-        const a1 = new Uint8Array([1,2,3]);
-        const a1b = a1.subarray(0, 3);
-        const a2 = new Uint8Array([5,10,15]);
-        const a2b = a2.subarray(0, 3);
-
-
-        if (!(a1.length > 0 && a1b.length > 0)) {
-          throw new Error("a1 & a1b should have a length");
-        }
-        let sum = Deno.core.opSync('op_sum_take', a1b);
-        if (sum !== 6) {
-          throw new Error(`Bad sum: ${sum}`);
-        }
-        if (a1.length > 0 || a1b.length > 0) {
-          throw new Error("expecting a1 & a1b to be detached");
-        }
-
-        const a3 = Deno.core.opSync('op_boomerang', a2b);
-        if (a3.byteLength != 3) {
-          throw new Error(`Expected a3.byteLength === 3, got ${a3.byteLength}`);
-        }
-        if (a3[0] !== 5 || a3[1] !== 10) {
-          throw new Error(`Invalid a3: ${a3[0]}, ${a3[1]}`);
-        }
-        if (a2.byteLength > 0 || a2b.byteLength > 0) {
-          throw new Error("expecting a2 & a2b to be detached, a3 re-attached");
-        }
-
-        const wmem = new WebAssembly.Memory({ initial: 1, maximum: 2 });
-        const w32 = new Uint32Array(wmem.buffer);
-        w32[0] = 1; w32[1] = 2; w32[2] = 3;
-        const assertWasmThrow = (() => {
-          try {
-            let sum = Deno.core.opSync('op_sum_take', w32.subarray(0, 2));
-            return false;
-          } catch(e) {
-            return e.message.includes('ExpectedDetachable');
-          }
-        });
-        if (!assertWasmThrow()) {
-          throw new Error("expected wasm mem to not be detachable");
-        }
-      "#,
-      )
-      .unwrap();
   }
 
   #[test]

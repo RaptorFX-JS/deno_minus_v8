@@ -141,8 +141,8 @@ pub fn op(attr: TokenStream, item: TokenStream) -> TokenStream {
 
       pub fn v8_func #generics (
         scope: &mut #core::v8::HandleScope<'scope>,
-        args: #core::v8::FunctionCallbackArguments,
-        mut rv: #core::v8::ReturnValue,
+        mut args: #core::v8::FunctionCallbackArguments<'scope>,
+        rv: &mut #core::v8::ReturnValue<'scope>,
       ) #where_clause {
         #v8_body
       }
@@ -202,17 +202,14 @@ fn codegen_v8_async(
 
   quote! {
     use #core::futures::FutureExt;
-    // SAFETY: #core guarantees args.data() is a v8 External pointing to an OpCtx for the isolates lifetime
+    // SAFETY: #core guarantees args.data points to an OpCtx for the isolates lifetime
     let ctx = unsafe {
-      &*(#core::v8::Local::<#core::v8::External>::cast(args.data().unwrap_unchecked()).value()
-      as *const #core::_ops::OpCtx)
+      &*(args.data as *const #core::_ops::OpCtx)
     };
     let op_id = ctx.id;
 
     let promise_id = args.get(0);
-    let promise_id = #core::v8::Local::<#core::v8::Integer>::try_from(promise_id)
-      .map(|l| l.value() as #core::PromiseId)
-      .map_err(#core::anyhow::Error::from);
+    let promise_id = #core::serde_v8::from_backend(scope, promise_id);
     // Fail if promise id invalid (not an int)
     let promise_id: #core::PromiseId = match promise_id {
       Ok(promise_id) => promise_id,
@@ -283,10 +280,9 @@ fn codegen_v8_sync(
   let type_params = exclude_lifetime_params(&f.sig.generics.params);
 
   quote! {
-    // SAFETY: #core guarantees args.data() is a v8 External pointing to an OpCtx for the isolates lifetime
+    // SAFETY: #core guarantees args.data points to an OpCtx for the isolates lifetime
     let ctx = unsafe {
-      &*(#core::v8::Local::<#core::v8::External>::cast(args.data().unwrap_unchecked()).value()
-      as *const #core::_ops::OpCtx)
+      &*(args.data as *const #core::_ops::OpCtx)
     };
 
     #arg_decls
@@ -341,7 +337,7 @@ fn codegen_arg(
   // Otherwise deserialize it via serde_v8
   quote! {
     let #ident = args.get(#idx as i32);
-    let #ident = match #core::serde_v8::from_v8(scope, #ident) {
+    let #ident = match #core::serde_v8::from_backend(scope, #ident) {
       Ok(v) => v,
       Err(err) => {
         let msg = format!("Error parsing args at position {}: {}", #idx, #core::anyhow::Error::from(err));
@@ -364,7 +360,7 @@ fn codegen_sync_ret(
     quote! {}
   } else {
     quote! {
-      match #core::serde_v8::to_v8(scope, result) {
+      match #core::serde_v8::to_backend(scope, result) {
         Ok(ret) => rv.set(ret),
         Err(err) => #core::_ops::throw_type_error(
           scope,
@@ -385,7 +381,7 @@ fn codegen_sync_ret(
       },
       Err(err) => {
         let err = #core::OpError::new(op_state.get_error_class_fn, err);
-        rv.set(#core::serde_v8::to_v8(scope, err).unwrap());
+        rv.set(#core::serde_v8::to_backend(scope, err).unwrap());
       },
     };
   }

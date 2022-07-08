@@ -1,12 +1,13 @@
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
+use crate::serde_v8;
 use crate::error::format_file_name;
+use crate::error::not_supported;
 use crate::error::type_error;
 use crate::include_js_files;
 use crate::ops_metrics::OpMetrics;
 use crate::resources::ResourceId;
 use crate::Extension;
 use crate::OpState;
-use crate::Resource;
 use crate::ZeroCopyBuf;
 use anyhow::Error;
 use deno_ops::op;
@@ -107,21 +108,6 @@ pub fn op_print(msg: String, is_err: bool) -> Result<(), Error> {
   Ok(())
 }
 
-pub struct WasmStreamingResource(pub(crate) RefCell<v8::WasmStreaming>);
-
-impl Resource for WasmStreamingResource {
-  fn close(self: Rc<Self>) {
-    // At this point there are no clones of Rc<WasmStreamingResource> on the
-    // resource table, and no one should own a reference outside of the stack.
-    // Therefore, we can be sure `self` is the only reference.
-    if let Ok(wsr) = Rc::try_unwrap(self) {
-      wsr.0.into_inner().finish();
-    } else {
-      panic!("Couldn't consume WasmStreamingResource.");
-    }
-  }
-}
-
 /// Feed bytes to WasmStreamingResource.
 #[op]
 pub fn op_wasm_streaming_feed(
@@ -129,12 +115,8 @@ pub fn op_wasm_streaming_feed(
   rid: ResourceId,
   bytes: ZeroCopyBuf,
 ) -> Result<(), Error> {
-  let wasm_streaming =
-    state.resource_table.get::<WasmStreamingResource>(rid)?;
-
-  wasm_streaming.0.borrow_mut().on_bytes_received(&bytes);
-
-  Ok(())
+  // minus_v8 doesn't support wasm
+  Err(not_supported())
 }
 
 #[op]
@@ -143,12 +125,8 @@ pub fn op_wasm_streaming_set_url(
   rid: ResourceId,
   url: String,
 ) -> Result<(), Error> {
-  let wasm_streaming =
-    state.resource_table.get::<WasmStreamingResource>(rid)?;
-
-  wasm_streaming.0.borrow_mut().set_url(&url);
-
-  Ok(())
+  // minus_v8 doesn't support wasm
+  Err(not_supported())
 }
 
 #[op]
@@ -186,6 +164,7 @@ fn op_format_file_name(file_name: String) -> String {
 }
 
 #[op]
-fn op_is_proxy(value: serde_v8::Value) -> bool {
-  value.v8_value.is_proxy()
+fn op_is_proxy(value: serde_v8::Value) -> Result<bool, Error> {
+  // TODO(minus_v8) polyfill in JS
+  Err(not_supported())
 }

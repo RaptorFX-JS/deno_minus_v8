@@ -863,6 +863,7 @@ dependencies = [
  "anyhow",
  "deno_ast",
  "deno_ops",
+ "erased-serde",
  "futures",
  "indexmap",
  "libc",
@@ -1459,6 +1460,15 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "erased-serde"
+version = "0.3.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "81d013529d5574a60caeda29e179e695125448e5de52e3874f7b4c1d7360e18e"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

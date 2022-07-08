@@ -1,4 +1,16 @@
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
+
+// MINUS V8: export the minus_v8 module as v8
+pub mod minus_v8;
+
+pub mod v8 {
+  pub use crate::minus_v8::*;
+}
+
+pub mod serde_v8 {
+  pub use crate::minus_v8::serde::*;
+}
+
 mod async_cancel;
 mod async_cell;
 mod bindings;
@@ -6,7 +18,6 @@ pub mod error;
 mod error_codes;
 mod extensions;
 mod gotham_state;
-mod module_specifier;
 mod normalize_path;
 mod ops;
 mod ops_builtin;
@@ -14,7 +25,6 @@ mod ops_builtin_v8;
 mod ops_metrics;
 mod resources;
 mod runtime;
-mod source_map;
 
 // Re-exports
 pub use anyhow;
@@ -22,14 +32,9 @@ pub use futures;
 pub use parking_lot;
 pub use serde;
 pub use serde_json;
-pub use serde_v8;
-pub use serde_v8::ByteString;
-pub use serde_v8::StringOrBuffer;
-pub use serde_v8::U16String;
 pub use serde_v8::ZeroCopyBuf;
 pub use sourcemap;
 pub use url;
-pub use v8;
 
 pub use crate::async_cancel::CancelFuture;
 pub use crate::async_cancel::CancelHandle;
@@ -49,7 +54,6 @@ pub use crate::extensions::ExtensionBuilder;
 pub use crate::extensions::OpDecl;
 pub use crate::extensions::OpMiddlewareFn;
 pub use crate::normalize_path::normalize_path;
-pub use crate::ops::Op;
 pub use crate::ops::OpAsyncFuture;
 pub use crate::ops::OpCall;
 pub use crate::ops::OpError;
@@ -72,7 +76,6 @@ pub use crate::runtime::GetErrorClassFn;
 pub use crate::runtime::JsRealm;
 pub use crate::runtime::JsRuntime;
 pub use crate::runtime::RuntimeOptions;
-pub use crate::source_map::SourceMapGetter;
 pub use deno_ops::op;
 
 pub fn v8_version() -> &'static str {
