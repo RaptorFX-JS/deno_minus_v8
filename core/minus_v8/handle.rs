@@ -154,7 +154,7 @@ impl<'s, T> HandleInternal for Local<'s, T> {
 impl<'s, T> Handle for Local<'s, T> {
   type Data = T;
 
-  fn open<'a>(&'a self, _isolate: &mut Isolate) -> &'a Self::Data {
+  fn open(&self, _isolate: &mut Isolate) -> &Self::Data {
     unsafe { &*self.data.as_ptr() }
   }
 }
