@@ -91,15 +91,15 @@ impl<'s> DerefMut for HandleScope<'s, ()> {
 }
 
 pub struct TryCatch<'s, P> {
-  isolate: &'s Isolate,
+  inner: &'s mut P,
   exception: Option<Local<'s, Value>>,
   phantom: PhantomData<&'s mut P>,
 }
 
-impl<'s, 'p, C> TryCatch<'s, HandleScope<'p, C>> {
+impl<'s, 'p: 's, C> TryCatch<'s, HandleScope<'p, C>> {
   pub fn new(scope: &'s mut HandleScope<'p, C>) -> Self {
     Self {
-      isolate: scope.isolate,
+      inner: scope,
       exception: None,
       phantom: PhantomData,
     }
@@ -132,29 +132,25 @@ where
 
 impl<'s, 'p, C> AsRef<HandleScope<'p, C>> for TryCatch<'s, HandleScope<'p, C>> {
   fn as_ref(&self) -> &HandleScope<'p, C> {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &*(self as *const Self as *const _) }
+    &self.inner
   }
 }
 
 impl<'s, 'p, C> AsMut<HandleScope<'p, C>> for TryCatch<'s, HandleScope<'p, C>> {
   fn as_mut(&mut self) -> &mut HandleScope<'p, C> {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &mut *(self as *mut Self as *mut _) }
+    &mut self.inner
   }
 }
 
 impl<'s, 'p> AsRef<HandleScope<'p, ()>> for TryCatch<'s, HandleScope<'p>> {
   fn as_ref(&self) -> &HandleScope<'p, ()> {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &*(self as *const Self as *const _) }
+    &self.inner
   }
 }
 
 impl<'s, 'p> AsMut<HandleScope<'p, ()>> for TryCatch<'s, HandleScope<'p>> {
   fn as_mut(&mut self) -> &mut HandleScope<'p, ()> {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &mut *(self as *mut Self as *mut _) }
+    &mut self.inner
   }
 }
 
@@ -162,15 +158,13 @@ impl<'s, 'p> Deref for TryCatch<'s, HandleScope<'p, ()>> {
   type Target = HandleScope<'p, ()>;
 
   fn deref(&self) -> &Self::Target {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &*(self as *const Self as *const _) }
+    &self.inner
   }
 }
 
 impl<'s, 'p> DerefMut for TryCatch<'s, HandleScope<'p, ()>> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &mut *(self as *mut Self as *mut _) }
+    &mut self.inner
   }
 }
 
@@ -178,14 +172,12 @@ impl<'s, 'p> Deref for TryCatch<'s, HandleScope<'p>> {
   type Target = HandleScope<'p>;
 
   fn deref(&self) -> &Self::Target {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &*(self as *const Self as *const _) }
+    &self.inner
   }
 }
 
 impl<'s, 'p> DerefMut for TryCatch<'s, HandleScope<'p>> {
   fn deref_mut(&mut self) -> &mut Self::Target {
-    // SAFETY: phantom is zero-sized and TryCatch has the same layout as HandleScope
-    unsafe { &mut *(self as *mut Self as *mut _) }
+    &mut self.inner
   }
 }
