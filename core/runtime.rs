@@ -286,7 +286,7 @@ impl JsRuntime {
     let scope = &mut self.handle_scope();
     let recv_cb = {
       let cb = scope.backend.grab_function("Deno.core.opresolve").unwrap();
-      unsafe { Local::from_raw(&cb).unwrap() }
+      unsafe { Local::from_raw(cb).unwrap() }
     };
     let recv_cb = v8::Global::new(scope, recv_cb);
     // Put global handles in state
@@ -555,9 +555,9 @@ impl JsRuntime {
       // such that ready microtasks would be automatically run before
       // next macrotask is processed.
       let tc_scope = &mut v8::TryCatch::new(scope);
-      let this = v8::undefined(tc_scope).into();
+      let this = v8::undefined(tc_scope);
       loop {
-        let is_done = js_macrotask_cb.call(tc_scope, this, &[]);
+        let is_done = js_macrotask_cb.call(tc_scope, this.clone(), &[]);
 
         if let Some(exception) = tc_scope.exception() {
           return exception_to_err_result(tc_scope, exception, false);
@@ -668,7 +668,7 @@ impl JsRealm {
     match tc_scope.backend.execute_script(name, source_code) {
       Some(value) => {
         let value_handle = unsafe {
-          v8::Global::from_raw(&value as *const _).unwrap()
+          v8::Global::from_raw(scope, value).unwrap()
         };
         Ok(value_handle)
       }

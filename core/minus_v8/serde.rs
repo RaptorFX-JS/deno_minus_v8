@@ -142,7 +142,7 @@ where
   fn try_from(mut value: Value) -> Result<Self, Self::Error> {
     match value {
       Value::FromBackend(mut data, ..) => {
-        unsafe { Ok(v8::Local::from_raw(&data.try_into()?).unwrap()) }
+        unsafe { Ok(v8::Local::from_raw(data.try_into()?).unwrap()) }
       },
       Value::ToBackend(_) => {
         Err(anyhow::anyhow!("converting a Value::ToBackend to v8 is unsupported"))
@@ -197,7 +197,7 @@ where
   V: Into<v8::Value> + Clone,
 {
   let converted = input.open(scope).clone().into();
-  let converted_local = unsafe { v8::Local::from_raw(&converted).unwrap() };
+  let converted_local = unsafe { v8::Local::from_raw(converted).unwrap() };
   T::from_v8(scope, converted_local)
 }
 

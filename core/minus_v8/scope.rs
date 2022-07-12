@@ -122,9 +122,9 @@ where
   Self: AsMut<HandleScope<'p, ()>>,
 {
   pub fn exception(&mut self) -> Option<Local<'p, Value>> {
-    self.exception.map(|x| {
+    self.exception.clone().map(|x| {
       unsafe {
-        Local::from_raw(&x.open(self.as_mut()).clone()).unwrap()
+        Local::from_raw(x.open(self.as_mut()).clone()).unwrap()
       }
     })
   }

@@ -61,7 +61,7 @@ impl String {
     value: &str,
   ) -> Option<Local<'s, String>> {
     Self::new_from_utf8(scope, value.as_ref()).map(|x| {
-      unsafe { Local::from_raw(&x).unwrap() }
+      unsafe { Local::from_raw(x).unwrap() }
     })
   }
 
@@ -114,7 +114,7 @@ impl Function {
       Some(ref mut x) => {
         let serde_result: serde_v8::Value<'s> = from_backend(scope, x).ok()?;
         Some(unsafe {
-          Local::from_raw(&serde_result.try_into().ok().clone()?).unwrap()
+          Local::from_raw(serde_result.try_into().ok().clone()?).unwrap()
         })
       },
       None => None,
@@ -146,7 +146,7 @@ pub struct Exception {
 impl Exception {
   pub fn type_error<'s>(scope: &mut HandleScope<'s>, message: Local<String>) -> Local<'s, Value> {
     unsafe {
-      Local::from_raw(&Value::Exception {
+      Local::from_raw(Value::Exception {
         class: "TypeError".to_string(),
         message: message.open(scope).0.clone(),
       }).unwrap()
@@ -230,6 +230,6 @@ impl_reverse_froms! {
 
 pub fn undefined<'s>(_scope: &mut HandleScope<'s, ()>) -> Local<'s, Value> {
   unsafe {
-    Local::from_raw(&Value::Undefined).unwrap()
+    Local::from_raw(Value::Undefined).unwrap()
   }
 }

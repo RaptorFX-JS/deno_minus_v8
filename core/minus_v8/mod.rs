@@ -26,16 +26,21 @@ impl V8 {
   }
 }
 
-#[derive(Default)]
-pub struct Context {}
+pub struct Context {
+  global: Global<Object>,
+}
 
 impl Context {
-  pub fn new<'s>(_scope: &mut HandleScope<'s, ()>) -> Local<'s, Context> {
-    unsafe { Local::from_raw(&Context {} as *const _).unwrap() }
+  pub fn new<'s>(scope: &mut HandleScope<'s, ()>) -> Local<'s, Context> {
+    unsafe {
+      Local::from_raw(Context {
+        global: Global::from_raw(scope, Object {}).unwrap(),
+      }).unwrap()
+    }
   }
 
-  pub fn global<'s>(&self, _scope: &mut HandleScope<'s, ()>) -> Local<'s, Object> {
-    unsafe { Local::from_raw(&Object {} as *const _).unwrap() }
+  pub fn global<'s>(&self, scope: &mut HandleScope<'s, ()>) -> Local<'s, Object> {
+    Local::new(scope, self.global.clone())
   }
 }
 
@@ -53,7 +58,7 @@ impl Isolate {
   }
 
   pub fn get_current_context(&self) -> Local<Context> {
-    unsafe { Local::from_raw(&Context::default() as *const _).unwrap() }
+    unimplemented!("minus_v8: no global context access")
   }
 
   #[inline]

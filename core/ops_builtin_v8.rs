@@ -332,10 +332,9 @@ fn op_destructure_error(
 fn op_terminate(scope: &mut v8::HandleScope, exception: serde_v8::Value) {
   let state_rc = JsRuntime::state(scope);
   let mut state = state_rc.borrow_mut();
-  state.explicit_terminate_exception =
-    Some(v8::Global::new(scope, unsafe {
-      v8::Local::from_raw(&exception.try_into().unwrap()).unwrap()
-    }));
+  state.explicit_terminate_exception = unsafe {
+    Some(v8::Global::from_raw(scope, exception.try_into().unwrap()).unwrap())
+  };
   scope.terminate_execution();
 }
 
