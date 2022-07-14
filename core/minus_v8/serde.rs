@@ -14,7 +14,9 @@ pub use erased_serde::Deserializer as ErasedDeserializer;
 pub use anyhow::Error;
 pub use anyhow::Result;
 
+#[allow(unused)]
 type JsValue<'s> = v8::Local<'s, v8::Value>;
+
 type JsResult<'s> = Result<Box<dyn ErasedSerialize + 's>>;
 
 pub enum Value<'bogus_lifetime_for_compat> {
@@ -27,7 +29,6 @@ pub enum Value<'bogus_lifetime_for_compat> {
   // Note: Migrate all usages of `v8_value` to a `try_into()` call!
   // pub v8_value: JsValue<'s>,
 
-  // TODO(minus_v8) just store a Local here once we fix the memory leak
   FromBackend(v8::Value, PhantomData<&'bogus_lifetime_for_compat ()>),
   ToBackend(Box<dyn ErasedSerialize>),
 }
@@ -139,9 +140,9 @@ where
 {
   type Error = Error;
 
-  fn try_from(mut value: Value) -> Result<Self, Self::Error> {
+  fn try_from(value: Value) -> Result<Self, Self::Error> {
     match value {
-      Value::FromBackend(mut data, ..) => {
+      Value::FromBackend(data, ..) => {
         unsafe { Ok(v8::Local::from_raw(data.try_into()?).unwrap()) }
       },
       Value::ToBackend(_) => {
@@ -154,9 +155,9 @@ where
 impl<'s> TryFrom<Value<'s>> for v8::Value {
   type Error = Error;
 
-  fn try_from(mut value: Value) -> Result<Self, Self::Error> {
+  fn try_from(value: Value) -> Result<Self, Self::Error> {
     match value {
-      Value::FromBackend(mut data, ..) => Ok(data),
+      Value::FromBackend(data, ..) => Ok(data),
       Value::ToBackend(_) => {
         Err(anyhow::anyhow!("converting a Value::ToBackend to v8 is unsupported"))
       },

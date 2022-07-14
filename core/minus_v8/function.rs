@@ -40,7 +40,7 @@ where
 {
   fn map_fn_to(self) -> FunctionCallback {
     let inner = self;
-    Arc::new(move |mut info: FunctionCallbackInfo| -> Box<dyn ErasedSerialize> {
+    Arc::new(move |info: FunctionCallbackInfo| -> Box<dyn ErasedSerialize> {
       let mut return_val = ReturnValue(None);
       inner(
         &mut HandleScope::new(info.isolate),

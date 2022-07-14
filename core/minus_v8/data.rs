@@ -165,7 +165,7 @@ macro_rules! impl_try_froms {
       impl TryFrom<Value> for $variant {
         type Error = Error;
 
-        fn try_from(mut value: Value) -> Result<Self> {
+        fn try_from(value: Value) -> Result<Self> {
           match value {
             Value::$variant $({ $($param),* })? => {
               Ok($ctor)
@@ -207,6 +207,7 @@ macro_rules! impl_reverse_froms {
   ),*$(,)?) => {
     $(
       impl From<$variant> for Value {
+        #[allow(unused_variables)]
         fn from(value: $variant) -> Self {
           #[allow(unused_parens)]
           $(let $variant { $($named_param),* } = value;)?

@@ -118,7 +118,7 @@ mod private {
 pub trait Handle: HandleInternal<DataInternal = Self::Data> + Sized {
   type Data;
 
-  fn open<'a>(&'a self, isolate: &mut Isolate) -> &'a Self::Data;
+  fn open(&self, isolate: &mut Isolate) -> &Self::Data;
 }
 
 impl<T> HandleInternal for Global<T> {
