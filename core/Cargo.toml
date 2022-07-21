@@ -14,8 +14,14 @@ path = "lib.rs"
 
 [dependencies]
 anyhow = "1.0.57"
+# --- added by minus_v8 ---
+# keep in sync with the dependency from serde_v8
+bytes = "1"
+# -------------------------
 deno_ops = { path = "../ops", version = "0.18.0" }
 # --- added by minus_v8 ---
+# keep derive_more in sync with the dependency from serde_v8
+derive_more = "0.99.17"
 erased-serde = "0.3.21"
 # -------------------------
 futures = "0.3.21"

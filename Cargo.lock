@@ -861,8 +861,10 @@ name = "deno_core"
 version = "0.140.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "deno_ast",
  "deno_ops",
+ "derive_more",
  "erased-serde",
  "futures",
  "indexmap",
@@ -1064,21 +1066,8 @@ name = "deno_runtime"
 version = "0.66.0"
 dependencies = [
  "atty",
- "deno_broadcast_channel",
- "deno_console",
  "deno_core",
- "deno_crypto",
- "deno_fetch",
- "deno_ffi",
  "deno_http",
- "deno_net",
- "deno_tls",
- "deno_url",
- "deno_web",
- "deno_webgpu",
- "deno_webidl",
- "deno_websocket",
- "deno_webstorage",
  "dlopen",
  "encoding_rs",
  "filetime",

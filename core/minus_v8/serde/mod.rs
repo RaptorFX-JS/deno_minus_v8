@@ -1,7 +1,8 @@
+mod wrappers;
+pub use wrappers::*;
+
 use std::fmt::Formatter;
 use std::marker::PhantomData;
-use std::ops::Deref;
-use std::sync::Arc;
 use anyhow::Context;
 use serde::{Deserialize, Deserializer, de::Error as DeError, ser::Error as SerError, Serialize, Serializer};
 use crate::v8;
@@ -162,19 +163,6 @@ impl<'s> TryFrom<Value<'s>> for v8::Value {
         Err(anyhow::anyhow!("converting a Value::ToBackend to v8 is unsupported"))
       },
     }
-  }
-}
-
-/// (since we depend on an external backend, this might not actually be zero-copy)
-#[derive(Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct ZeroCopyBuf(Arc<[u8]>);
-
-impl Deref for ZeroCopyBuf {
-  type Target = [u8];
-
-  fn deref(&self) -> &Self::Target {
-    &self.0
   }
 }
 
