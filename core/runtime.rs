@@ -2,9 +2,13 @@
 
 use crate::{serde_v8, v8};
 use crate::bindings;
+use crate::error::generic_error;
 use crate::error::JsError;
 use crate::extensions::OpDecl;
 use crate::extensions::OpEventLoopFn;
+use crate::module_specifier::ModuleSpecifier;
+use crate::modules::ModuleId;
+use crate::modules::ModuleMap;
 use crate::op_void_async;
 use crate::op_void_sync;
 use crate::ops::*;
@@ -14,6 +18,7 @@ use crate::OpResult;
 use crate::OpState;
 use crate::PromiseId;
 use anyhow::Error;
+use futures::channel::oneshot;
 use futures::future::poll_fn;
 use futures::future::Future;
 use futures::stream::FuturesUnordered;
@@ -161,6 +166,12 @@ impl JsRuntime {
       waker: AtomicWaker::new(),
     })));
 
+    let module_map = ModuleMap {
+      next_module_id: 0,
+      by_id: HashMap::new(),
+    };
+    isolate.set_slot(Rc::new(RefCell::new(module_map)));
+
     let mut js_runtime = Self {
       v8_isolate: Some(isolate),
       event_loop_middlewares: Vec::with_capacity(options.extensions.len()),
@@ -206,6 +217,11 @@ impl JsRuntime {
   pub(crate) fn state(isolate: &v8::Isolate) -> Rc<RefCell<JsRuntimeState>> {
     let s = isolate.get_slot::<Rc<RefCell<JsRuntimeState>>>().unwrap();
     s.clone()
+  }
+
+  pub(crate) fn module_map(isolate: &v8::Isolate) -> Rc<RefCell<ModuleMap>> {
+    let module_map = isolate.get_slot::<Rc<RefCell<ModuleMap>>>().unwrap();
+    module_map.clone()
   }
 
   /// Initializes JS of provided Extensions in the given realm
@@ -465,6 +481,114 @@ pub(crate) fn exception_to_err_result<'s, T>(
 
 // Related to module loading
 impl JsRuntime {
+  // TODO(bartlomieju): make it return `ModuleEvaluationFuture`?
+  /// Evaluates an already instantiated ES module.
+  ///
+  /// Returns a receiver handle that resolves when module promise resolves.
+  /// Implementors must manually call [`JsRuntime::run_event_loop`] to drive
+  /// module evaluation future.
+  ///
+  /// `Error` can usually be downcast to `JsError` and should be awaited and
+  /// checked after [`JsRuntime::run_event_loop`] completion.
+  ///
+  /// This function panics if module has not been instantiated.
+  pub fn mod_evaluate(
+    &mut self,
+    id: ModuleId,
+  ) -> oneshot::Receiver<Result<(), Error>> {
+    let state_rc = Self::state(self.v8_isolate());
+    let module_map_rc = Self::module_map(self.v8_isolate());
+
+    let module_map = module_map_rc.borrow();
+    let module = module_map
+      .by_id
+      .get(&id)
+      .expect("ModuleInfo not found");
+
+    let (sender, receiver) = oneshot::channel();
+
+    // IMPORTANT: Top-level-await is enabled, which means that return value
+    // of module evaluation is a promise.
+    //
+    // Because that promise is created internally by V8, when error occurs during
+    // module evaluation the promise is rejected, and since the promise has no rejection
+    // handler it will result in call to `bindings::promise_reject_callback` adding
+    // the promise to pending promise rejection table - meaning JsRuntime will return
+    // error on next poll().
+    //
+    // This situation is not desirable as we want to manually return error at the
+    // end of this function to handle it further. It means we need to manually
+    // remove this promise from pending promise rejection table.
+    //
+    // For more details see:
+    // https://github.com/denoland/deno/issues/4908
+    // https://v8.dev/features/top-level-await#module-execution-order
+    // TODO(minus_v8) above details are blocked on implementing the promise reject callback
+    let specifier_escaped = serde_json::to_string(&module.name).unwrap();
+    self
+      .execute_script(
+        &module.name,
+        &format!("(async () => {{ await import({}) }})()", specifier_escaped)
+      )
+      .expect("minus_v8: failed to import module");
+
+    let explicit_terminate_exception =
+      state_rc.borrow_mut().explicit_terminate_exception.take();
+    let scope = &mut self.handle_scope();
+    let tc_scope = &mut v8::TryCatch::new(scope);
+
+    if let Some(exception) = explicit_terminate_exception {
+      let exception = v8::Local::new(tc_scope, exception);
+      sender
+        .send(exception_to_err_result(tc_scope, exception, false))
+        .expect("Failed to send module evaluation error.");
+    } else if tc_scope.has_terminated() || tc_scope.is_execution_terminating() {
+      sender.send(Err(
+        generic_error("Cannot evaluate module, because JavaScript execution has been terminated.")
+      )).expect("Failed to send module evaluation error.");
+    }
+
+    receiver
+  }
+
+  /// Asynchronously load specified module and all of its dependencies.
+  ///
+  /// The module will be marked as "main", and because of that
+  /// "import.meta.main" will return true when checked inside that module.
+  ///
+  /// User must call [`JsRuntime::mod_evaluate`] with returned `ModuleId`
+  /// manually after load is finished.
+  pub async fn load_main_module(
+    &mut self,
+    specifier: &ModuleSpecifier,
+    code: Option<String>,
+  ) -> Result<ModuleId, Error> {
+    let module_map_rc = Self::module_map(self.v8_isolate());
+    if let Some(_) = code {
+      todo!("minus_v8: support loading modules with code");
+    }
+    ModuleMap::load_main(module_map_rc, specifier.as_str()).await
+  }
+
+  /// Asynchronously load specified ES module and all of its dependencies.
+  ///
+  /// This method is meant to be used when loading some utility code that
+  /// might be later imported by the main module (ie. an entry point module).
+  ///
+  /// User must call [`JsRuntime::mod_evaluate`] with returned `ModuleId`
+  /// manually after load is finished.
+  pub async fn load_side_module(
+    &mut self,
+    specifier: &ModuleSpecifier,
+    code: Option<String>,
+  ) -> Result<ModuleId, Error> {
+    let module_map_rc = Self::module_map(self.v8_isolate());
+    if let Some(_) = code {
+      todo!("minus_v8: support loading modules with code");
+    }
+    ModuleMap::load_side(module_map_rc, specifier.as_str()).await
+  }
+
   // TODO(minus_v8) promise rejection callback
   /*
   fn check_promise_exceptions(&mut self) -> Result<(), Error> {

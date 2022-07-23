@@ -12,8 +12,6 @@ pub mod signal;
 pub mod spawn;
 pub mod tty;
 mod utils;
-pub mod web_worker;
-pub mod worker_host;
 
 use deno_core::OpState;
 use std::cell::RefCell;

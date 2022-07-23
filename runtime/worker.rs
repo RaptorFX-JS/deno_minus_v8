@@ -1,29 +1,21 @@
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
 
-use crate::inspector_server::InspectorServer;
 use crate::js;
 use crate::ops;
 use crate::ops::io::Stdio;
 use crate::permissions::Permissions;
 use crate::BootstrapOptions;
-use deno_broadcast_channel::InMemoryBroadcastChannel;
 use deno_core::error::AnyError;
 use deno_core::error::JsError;
 use deno_core::futures::Future;
 use deno_core::located_script_name;
-use deno_core::CompiledWasmModuleStore;
 use deno_core::Extension;
 use deno_core::GetErrorClassFn;
 use deno_core::JsRuntime;
-use deno_core::LocalInspectorSession;
 use deno_core::ModuleId;
-use deno_core::ModuleLoader;
 use deno_core::ModuleSpecifier;
 use deno_core::RuntimeOptions;
-use deno_core::SharedArrayBufferStore;
-use deno_core::SourceMapGetter;
 use deno_tls::rustls::RootCertStore;
-use deno_web::BlobStore;
 use log::debug;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -32,6 +24,7 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::sync::Arc;
 use std::task::Context;
 use std::task::Poll;
+use deno_core::v8::backend::JsBackend;
 
 pub type FormatJsErrorFn = dyn Fn(&JsError) -> String + Sync + Send;
 
@@ -61,27 +54,18 @@ pub struct MainWorker {
 }
 
 pub struct WorkerOptions {
+  pub backend: Box<dyn JsBackend>,
   pub bootstrap: BootstrapOptions,
   pub extensions: Vec<Extension>,
   pub unsafely_ignore_certificate_errors: Option<Vec<String>>,
   pub root_cert_store: Option<RootCertStore>,
   pub seed: Option<u64>,
-  pub module_loader: Rc<dyn ModuleLoader>,
   // Callbacks invoked when creating new instance of WebWorker
-  pub create_web_worker_cb: Arc<ops::worker_host::CreateWebWorkerCb>,
-  pub web_worker_preload_module_cb: Arc<ops::worker_host::PreloadModuleCb>,
   pub format_js_error_fn: Option<Arc<FormatJsErrorFn>>,
-  pub source_map_getter: Option<Box<dyn SourceMapGetter>>,
-  pub maybe_inspector_server: Option<Arc<InspectorServer>>,
   pub should_break_on_first_statement: bool,
   pub get_error_class_fn: Option<GetErrorClassFn>,
   pub origin_storage_dir: Option<std::path::PathBuf>,
-  pub blob_store: BlobStore,
-  pub broadcast_channel: InMemoryBroadcastChannel,
-  pub shared_array_buffer_store: Option<SharedArrayBufferStore>,
-  pub compiled_wasm_module_store: Option<CompiledWasmModuleStore>,
   pub stdio: Stdio,
-  pub startup_snapshot: Option<deno_core::Snapshot>,
 }
 
 impl MainWorker {
@@ -116,41 +100,8 @@ impl MainWorker {
 
     // Internal modules
     let mut extensions: Vec<Extension> = vec![
-      // Web APIs
-      deno_webidl::init(),
-      deno_console::init(),
-      deno_url::init(),
-      deno_web::init::<Permissions>(
-        options.blob_store.clone(),
-        options.bootstrap.location.clone(),
-      ),
-      deno_fetch::init::<Permissions>(deno_fetch::Options {
-        user_agent: options.bootstrap.user_agent.clone(),
-        root_cert_store: options.root_cert_store.clone(),
-        unsafely_ignore_certificate_errors: options
-          .unsafely_ignore_certificate_errors
-          .clone(),
-        file_fetch_handler: Rc::new(deno_fetch::FsFetchHandler),
-        ..Default::default()
-      }),
-      deno_websocket::init::<Permissions>(
-        options.bootstrap.user_agent.clone(),
-        options.root_cert_store.clone(),
-        options.unsafely_ignore_certificate_errors.clone(),
-      ),
-      deno_webstorage::init(options.origin_storage_dir.clone()),
-      deno_broadcast_channel::init(options.broadcast_channel.clone(), unstable),
-      deno_crypto::init(options.seed),
-      deno_webgpu::init(unstable),
-      // ffi
-      deno_ffi::init::<Permissions>(unstable),
       // Runtime ops
       ops::runtime::init(main_module.clone()),
-      ops::worker_host::init(
-        options.create_web_worker_cb.clone(),
-        options.web_worker_preload_module_cb.clone(),
-        options.format_js_error_fn.clone(),
-      ),
       ops::spawn::init(),
       ops::fs_events::init(),
       ops::fs::init(),
@@ -177,23 +128,10 @@ impl MainWorker {
     extensions.extend(std::mem::take(&mut options.extensions));
 
     let mut js_runtime = JsRuntime::new(RuntimeOptions {
-      module_loader: Some(options.module_loader.clone()),
-      startup_snapshot: options.startup_snapshot.take(),
-      source_map_getter: options.source_map_getter,
+      backend: options.backend,
       get_error_class_fn: options.get_error_class_fn,
-      shared_array_buffer_store: options.shared_array_buffer_store.clone(),
-      compiled_wasm_module_store: options.compiled_wasm_module_store.clone(),
       extensions,
-      ..Default::default()
     });
-
-    if let Some(server) = options.maybe_inspector_server.clone() {
-      server.register_inspector(
-        main_module.to_string(),
-        &mut js_runtime,
-        options.should_break_on_first_statement,
-      );
-    }
 
     Self {
       js_runtime,
@@ -286,27 +224,15 @@ impl MainWorker {
   }
 
   fn wait_for_inspector_session(&mut self) {
-    if self.should_break_on_first_statement {
-      self
-        .js_runtime
-        .inspector()
-        .wait_for_session_and_break_on_next_statement()
-    }
-  }
-
-  /// Create new inspector session. This function panics if Worker
-  /// was not configured to create inspector.
-  pub async fn create_inspector_session(&mut self) -> LocalInspectorSession {
-    let inspector = self.js_runtime.inspector();
-    inspector.create_local_session()
+    // minus_v8: there is no inspector
   }
 
   pub fn poll_event_loop(
     &mut self,
     cx: &mut Context,
-    wait_for_inspector: bool,
+    _wait_for_inspector: bool,
   ) -> Poll<Result<(), AnyError>> {
-    self.js_runtime.poll_event_loop(cx, wait_for_inspector)
+    self.js_runtime.poll_event_loop(cx)
   }
 
   pub async fn run_event_loop(
@@ -383,6 +309,7 @@ mod tests {
     let permissions = Permissions::default();
 
     let options = WorkerOptions {
+      backend: RuntimeOptions::default().backend,
       bootstrap: BootstrapOptions {
         args: vec![],
         cpu_count: 1,
@@ -401,20 +328,10 @@ mod tests {
       root_cert_store: None,
       seed: None,
       format_js_error_fn: None,
-      source_map_getter: None,
-      web_worker_preload_module_cb: Arc::new(|_| unreachable!()),
-      create_web_worker_cb: Arc::new(|_| unreachable!()),
-      maybe_inspector_server: None,
       should_break_on_first_statement: false,
-      module_loader: Rc::new(deno_core::FsModuleLoader),
       get_error_class_fn: None,
       origin_storage_dir: None,
-      blob_store: BlobStore::default(),
-      broadcast_channel: InMemoryBroadcastChannel::default(),
-      shared_array_buffer_store: None,
-      compiled_wasm_module_store: None,
       stdio: Default::default(),
-      startup_snapshot: None,
     };
 
     MainWorker::bootstrap_from_options(main_module, permissions, options)

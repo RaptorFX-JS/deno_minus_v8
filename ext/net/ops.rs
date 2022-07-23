@@ -707,24 +707,32 @@ where
   Ok(results)
 }
 
+// minus_v8: added where bound because our impl of #[op] requires the 'static lifetime
 #[op]
 pub fn op_set_nodelay<NP>(
   state: &mut OpState,
   rid: ResourceId,
   nodelay: bool,
-) -> Result<(), AnyError> {
+) -> Result<(), AnyError>
+where
+  NP: 'static,
+{
   super::check_unstable(state, "Deno.Conn#setNoDelay");
   let resource: Rc<TcpStreamResource> =
     state.resource_table.get::<TcpStreamResource>(rid)?;
   resource.set_nodelay(nodelay)
 }
 
+// minus_v8: added where bound because our impl of #[op] requires the 'static lifetime
 #[op]
 pub fn op_set_keepalive<NP>(
   state: &mut OpState,
   rid: ResourceId,
   keepalive: bool,
-) -> Result<(), AnyError> {
+) -> Result<(), AnyError>
+where
+  NP: 'static,
+{
   super::check_unstable(state, "Deno.Conn#setKeepAlive");
   let resource: Rc<TcpStreamResource> =
     state.resource_table.get::<TcpStreamResource>(rid)?;

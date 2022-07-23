@@ -1293,8 +1293,6 @@ impl Permissions {
   }
 }
 
-// TODO(minus_v8) should we handle permissions for web APIs?
-/*
 impl deno_net::NetPermissions for Permissions {
   fn check_net<T: AsRef<str>>(
     &mut self,
@@ -1312,6 +1310,8 @@ impl deno_net::NetPermissions for Permissions {
   }
 }
 
+// TODO(minus_v8) should we handle permissions for web APIs?
+/*
 impl deno_fetch::FetchPermissions for Permissions {
   fn check_net_url(&mut self, url: &url::Url) -> Result<(), AnyError> {
     self.net.check_url(url)
@@ -1343,7 +1343,7 @@ impl deno_ffi::FfiPermissions for Permissions {
     self.ffi.check(path)
   }
 }
- */
+*/
 
 fn unit_permission_from_flag_bool(
   flag: bool,
