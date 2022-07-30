@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::ffi::c_void;
 use crate::v8::{Function, FunctionCallback, Value};
-
-pub use crate::ops_builtin_v8::MemoryUsage;
 use crate::serde_v8::{ErasedDeserializer, ErasedSerialize};
 
+pub use crate::ops_builtin_v8::MemoryUsage;
+pub use downcast_rs::Downcast;
+
 /// A JS backend that serves as a replacement for V8.
-pub trait JsBackend {
+pub trait JsBackend: Downcast {
   /// Inject a native bridge object into the runtime with the given methods.
   fn inject_bridge(&mut self, path: &str, bridge: HashMap<&str, NativeFunctionCallback>);
 
@@ -32,6 +33,8 @@ pub trait JsBackend {
   /// Requests that the backend terminates.
   fn terminate(&mut self);
 }
+
+downcast_rs::impl_downcast!(JsBackend);
 
 /// A native function that should be exposed to JS.
 pub struct NativeFunctionCallback {

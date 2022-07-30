@@ -865,6 +865,7 @@ dependencies = [
  "deno_ast",
  "deno_ops",
  "derive_more",
+ "downcast-rs",
  "erased-serde",
  "futures",
  "indexmap",
@@ -1288,6 +1289,12 @@ dependencies = [
  "quote 0.6.13",
  "syn 0.15.44",
 ]
+
+[[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "dprint-core"
