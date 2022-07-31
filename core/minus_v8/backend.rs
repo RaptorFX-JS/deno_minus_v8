@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::ffi::c_void;
+use downcast_rs::{Downcast, impl_downcast};
 use crate::v8::{Function, FunctionCallback, Value};
 use crate::serde_v8::{ErasedDeserializer, ErasedSerialize};
 
 pub use crate::ops_builtin_v8::MemoryUsage;
-pub use downcast_rs::Downcast;
 
 /// A JS backend that serves as a replacement for V8.
 pub trait JsBackend: Downcast {
@@ -34,7 +34,7 @@ pub trait JsBackend: Downcast {
   fn terminate(&mut self);
 }
 
-downcast_rs::impl_downcast!(JsBackend);
+impl_downcast!(JsBackend);
 
 /// A native function that should be exposed to JS.
 pub struct NativeFunctionCallback {

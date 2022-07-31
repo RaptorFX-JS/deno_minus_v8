@@ -208,6 +208,29 @@ impl JsRuntime {
     self.global_realm().handle_scope(self)
   }
 
+  /// minus-v8 specific function. Temporarily gets mutable access to
+  /// the [`JsBackend`] as its original type.
+  ///
+  /// # Panics
+  /// If the given backend type does not match the real backend type.
+  /// This will leave the runtime in an inconsistent state.
+  pub fn with_backend<B, F, R>(&mut self, callback: F) -> R
+  where
+    B: JsBackend + 'static,
+    F: FnOnce(&mut B) -> R,
+  {
+    let mut owned_isolate = self.v8_isolate.take().unwrap();
+    let backend_box: Box<B> = match owned_isolate.backend.downcast() {
+      Ok(backend_box) => backend_box,
+      Err(_) => panic!("Couldn't downcast Box<dyn JsBackend> to Box<{}>", std::any::type_name::<B>()),
+    };
+    let mut backend = *backend_box;
+    let ret = callback(&mut backend);
+    owned_isolate.backend = Box::new(backend);
+    self.v8_isolate = Some(owned_isolate);
+    ret
+  }
+
   fn setup_isolate(mut isolate: v8::OwnedIsolate) -> v8::OwnedIsolate {
     // TODO(minus_v8) promise reject callback
     // isolate.set_promise_reject_callback(bindings::promise_reject_callback);
