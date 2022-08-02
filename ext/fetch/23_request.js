@@ -12,7 +12,7 @@
 
 ((window) => {
   const webidl = window.__bootstrap.webidl;
-  const consoleInternal = window.__bootstrap.console;
+  // const consoleInternal = window.__bootstrap.console;
   const { HTTP_TOKEN_CODE_POINT_RE, byteUpperCase } = window.__bootstrap.infra;
   const { URL } = window.__bootstrap.url;
   const { guardFromHeaders } = window.__bootstrap.headers;
@@ -371,6 +371,7 @@
       );
     }
 
+    /*
     [SymbolFor("Deno.customInspect")](inspect) {
       return inspect(consoleInternal.createFilteredInspectProxy({
         object: this,
@@ -384,6 +385,7 @@
         ],
       }));
     }
+    */
   }
 
   webidl.configurePrototype(Request);

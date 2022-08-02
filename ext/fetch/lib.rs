@@ -98,11 +98,13 @@ where
       "22_http_client.js",
       "23_request.js",
       "23_response.js",
-      "26_fetch.js",
+      // minus_v8: 01_http depends on internal impl details of fetch,
+      // but we don't need to expose our own fetch impl
+      // "26_fetch.js",
     ))
     .ops(vec![
-      op_fetch::decl::<FP>(),
-      op_fetch_send::decl(),
+      // op_fetch::decl::<FP>(),
+      // op_fetch_send::decl(),
       op_fetch_custom_client::decl::<FP>(),
     ])
     .state(move |state| {
@@ -269,7 +271,9 @@ where
           }
           Some(data) => {
             // If a body is passed, we use it, and don't return a body for streaming.
-            request = request.body(Vec::from(&*data));
+            // minus_v8: slightly changed the below to work with our ZeroCopyBuf impl
+            let vec: Vec<u8> = data.into();
+            request = request.body(vec);
             None
           }
         }

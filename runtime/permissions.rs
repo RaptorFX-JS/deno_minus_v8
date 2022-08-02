@@ -1311,7 +1311,6 @@ impl deno_net::NetPermissions for Permissions {
 }
 
 // TODO(minus_v8) should we handle permissions for web APIs?
-/*
 impl deno_fetch::FetchPermissions for Permissions {
   fn check_net_url(&mut self, url: &url::Url) -> Result<(), AnyError> {
     self.net.check_url(url)
@@ -1322,6 +1321,7 @@ impl deno_fetch::FetchPermissions for Permissions {
   }
 }
 
+/*
 impl deno_web::TimersPermission for Permissions {
   fn allow_hrtime(&mut self) -> bool {
     self.hrtime.check().is_ok()
@@ -1331,6 +1331,7 @@ impl deno_web::TimersPermission for Permissions {
     crate::ops::check_unstable(state, api_name);
   }
 }
+*/
 
 impl deno_websocket::WebSocketPermissions for Permissions {
   fn check_net_url(&mut self, url: &url::Url) -> Result<(), AnyError> {
@@ -1338,6 +1339,7 @@ impl deno_websocket::WebSocketPermissions for Permissions {
   }
 }
 
+/*
 impl deno_ffi::FfiPermissions for Permissions {
   fn check(&mut self, path: Option<&Path>) -> Result<(), AnyError> {
     self.ffi.check(path)

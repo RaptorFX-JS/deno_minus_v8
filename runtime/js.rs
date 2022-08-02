@@ -14,7 +14,8 @@ pub fn init() -> Extension {
       "js/01_web_util.js",
       "js/06_util.js",
       "js/10_permissions.js",
-      "js/11_workers.js",
+      // minus_v8: we don't support workers
+      // "js/11_workers.js",
       "js/12_io.js",
       "js/13_buffer.js",
       "js/30_fs.js",
@@ -27,7 +28,8 @@ pub fn init() -> Extension {
       "js/40_read_file.js",
       "js/40_signals.js",
       "js/40_spawn.js",
-      "js/40_testing.js",
+      // TODO(minus_v8): testing.js is blocked on finding a way to wrap the console
+      // "js/40_testing.js",
       "js/40_tty.js",
       "js/40_write_file.js",
       "js/41_prompt.js",

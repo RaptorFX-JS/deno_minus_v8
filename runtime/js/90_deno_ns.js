@@ -6,8 +6,9 @@
   const __bootstrap = window.__bootstrap;
   __bootstrap.denoNs = {
     metrics: core.metrics,
-    test: __bootstrap.testing.test,
-    bench: __bootstrap.testing.bench,
+    // TODO(minus_v8) support testing
+    // test: __bootstrap.testing.test,
+    // bench: __bootstrap.testing.bench,
     Process: __bootstrap.process.Process,
     run: __bootstrap.process.run,
     isatty: __bootstrap.tty.isatty,
@@ -58,8 +59,9 @@
     errors: __bootstrap.errors.errors,
     // TODO(kt3k): Remove this export at v2
     // See https://github.com/denoland/deno/issues/9294
-    customInspect: __bootstrap.console.customInspect,
-    inspect: __bootstrap.console.inspect,
+    // TODO(minus_v8) there, done /s | can we support inspect?
+    // customInspect: __bootstrap.console.customInspect,
+    // inspect: __bootstrap.console.inspect,
     env: __bootstrap.os.env,
     exit: __bootstrap.os.exit,
     execPath: __bootstrap.os.execPath,
@@ -138,17 +140,19 @@
     HttpClient: __bootstrap.fetch.HttpClient,
     createHttpClient: __bootstrap.fetch.createHttpClient,
     http: __bootstrap.http,
-    dlopen: __bootstrap.ffi.dlopen,
-    UnsafeCallback: __bootstrap.ffi.UnsafeCallback,
-    UnsafePointer: __bootstrap.ffi.UnsafePointer,
-    UnsafePointerView: __bootstrap.ffi.UnsafePointerView,
-    UnsafeFnPointer: __bootstrap.ffi.UnsafeFnPointer,
+    // TODO(minus_v8) ffi
+    // dlopen: __bootstrap.ffi.dlopen,
+    // UnsafeCallback: __bootstrap.ffi.UnsafeCallback,
+    // UnsafePointer: __bootstrap.ffi.UnsafePointer,
+    // UnsafePointerView: __bootstrap.ffi.UnsafePointerView,
+    // UnsafeFnPointer: __bootstrap.ffi.UnsafeFnPointer,
     flock: __bootstrap.fs.flock,
     flockSync: __bootstrap.fs.flockSync,
     funlock: __bootstrap.fs.funlock,
     funlockSync: __bootstrap.fs.funlockSync,
-    refTimer: __bootstrap.timers.refTimer,
-    unrefTimer: __bootstrap.timers.unrefTimer,
+    // TODO(minus_v8) timers
+    // refTimer: __bootstrap.timers.refTimer,
+    // unrefTimer: __bootstrap.timers.unrefTimer,
     Child: __bootstrap.spawn.Child,
     spawnChild: __bootstrap.spawn.spawnChild,
     spawn: __bootstrap.spawn.spawn,

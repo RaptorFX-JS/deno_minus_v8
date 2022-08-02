@@ -100,6 +100,30 @@ impl MainWorker {
 
     // Internal modules
     let mut extensions: Vec<Extension> = vec![
+      // minus_v8 polyfills
+      ops::polyfills::init(),
+      // Web APIs
+      deno_webidl::init(),
+      deno_fetch::init::<Permissions>(deno_fetch::Options {
+        user_agent: options.bootstrap.user_agent.clone(),
+        root_cert_store: options.root_cert_store.clone(),
+        unsafely_ignore_certificate_errors: options
+          .unsafely_ignore_certificate_errors
+          .clone(),
+        file_fetch_handler: Rc::new(deno_fetch::FsFetchHandler),
+        ..Default::default()
+      }),
+      deno_websocket::init::<Permissions>(
+        // TODO(minus_v8) the final runtime has two WebSocket instances: the Deno
+        //                one used in the HTTP API and the runtime-provided one
+        //                used for everything else. This might cause surprising
+        //                behavior depending on how websockets are used.
+        //                Should we, at the cost of performance, replace the
+        //                runtime-provided API with ours?
+        options.bootstrap.user_agent.clone(),
+        options.root_cert_store.clone(),
+        options.unsafely_ignore_certificate_errors.clone(),
+      ),
       // Runtime ops
       ops::runtime::init(main_module.clone()),
       ops::spawn::init(),

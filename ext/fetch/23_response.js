@@ -14,7 +14,7 @@
 ((window) => {
   const { isProxy } = Deno.core;
   const webidl = window.__bootstrap.webidl;
-  const consoleInternal = window.__bootstrap.console;
+  // const consoleInternal = window.__bootstrap.console;
   const { HTTP_TAB_OR_SPACE, regexMatcher, serializeJSValueToJSONString } =
     window.__bootstrap.infra;
   const { extractBody, mixinBody } = window.__bootstrap.fetchBody;
@@ -402,6 +402,7 @@
       return second;
     }
 
+    /*
     [SymbolFor("Deno.customInspect")](inspect) {
       return inspect(consoleInternal.createFilteredInspectProxy({
         object: this,
@@ -418,6 +419,7 @@
         ],
       }));
     }
+    */
   }
 
   webidl.configurePrototype(Response);

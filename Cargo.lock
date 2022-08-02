@@ -1068,9 +1068,13 @@ version = "0.66.0"
 dependencies = [
  "atty",
  "deno_core",
+ "deno_fetch",
  "deno_http",
  "deno_net",
  "deno_tls",
+ "deno_url",
+ "deno_webidl",
+ "deno_websocket",
  "dlopen",
  "encoding_rs",
  "filetime",
