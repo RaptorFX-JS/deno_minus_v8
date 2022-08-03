@@ -22,7 +22,13 @@ pub trait JsBackend: Downcast {
   ) -> Option<Value>;
 
   /// Grabs a JS function that might be invoked repeatedly by native code.
-  fn grab_function(&mut self, name: &str) -> Option<Function>;
+  // note: this is a function that returns a function so that this trait is object safe
+  fn grab_function(
+    &self
+  ) -> &'static dyn Fn(
+    /*isolate:*/ &mut Isolate,
+    /*name:*/ &str,
+  ) -> Option<Function>;
 
   /// Invokes a JS function acquired with [`grab_function`] on an undefined `this`.
   // note: this is a function that returns a function so that this trait is object safe
@@ -69,8 +75,11 @@ pub mod test {
       &inner
     }
 
-    fn grab_function(&mut self, _name: &str) -> Option<Function> {
-      Some(Function(0))
+    fn grab_function(&self) -> &'static dyn Fn(&mut Isolate, &str) -> Option<Function> {
+      fn inner(_isolate: &mut Isolate, _name: &str) -> Option<Function> {
+        Some(Function(0))
+      }
+      &inner
     }
 
     fn invoke_function(

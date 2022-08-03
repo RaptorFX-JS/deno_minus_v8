@@ -324,7 +324,7 @@ impl JsRuntime {
   fn init_cbs(&mut self) {
     let scope = &mut self.handle_scope();
     let recv_cb = {
-      let cb = scope.backend.grab_function("Deno.core.opresolve").unwrap();
+      let cb = (scope.backend.grab_function())(scope, "Deno.core.opresolve").unwrap();
       unsafe { Local::from_raw(cb).unwrap() }
     };
     let recv_cb = v8::Global::new(scope, recv_cb);
