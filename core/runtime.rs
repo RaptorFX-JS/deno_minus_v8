@@ -812,7 +812,7 @@ impl JsRealm {
 
     let tc_scope = &mut v8::TryCatch::new(scope);
 
-    match tc_scope.backend.execute_script(name, source_code) {
+    match (tc_scope.backend.execute_script())(tc_scope, name, source_code) {
       Some(value) => {
         let value_handle = unsafe {
           v8::Global::from_raw(scope, value).unwrap()

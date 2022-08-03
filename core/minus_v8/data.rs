@@ -128,7 +128,7 @@ impl Function {
     _recv: Local<Value>,
     args: Vec<Box<dyn ErasedSerialize + 's>>,
   ) -> Option<Box<dyn ErasedDeserializer<'static>>> {
-    scope.backend.invoke_function(&self, args)
+    (scope.backend.invoke_function())(scope, &self, args)
   }
 }
 

@@ -46,7 +46,7 @@ impl Context {
 
 pub struct Isolate {
   pub backend: Box<dyn JsBackend>,
-  slots: GothamState,
+  pub slots: GothamState,
 }
 
 impl Isolate {
