@@ -866,6 +866,7 @@ dependencies = [
  "deno_ops",
  "derive_more",
  "downcast-rs",
+ "encoding_rs",
  "erased-serde",
  "futures",
  "indexmap",

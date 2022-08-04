@@ -32,9 +32,31 @@ macro_rules! impl_wrapper {
 }
 
 impl_wrapper! {
-  #[derive(Serialize, Deserialize)]
-  #[serde(transparent)]
   pub struct ByteString(Vec<u8>);
+}
+
+impl Serialize for ByteString {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer
+  {
+    // SAFETY: ByteString should only ever contain valid Latin-1
+    serializer.serialize_str(std::str::from_utf8(&self.0).unwrap())
+  }
+}
+
+impl<'de> Deserialize<'de> for ByteString {
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    let string = String::deserialize(deserializer)?;
+    if encoding_rs::mem::is_utf8_latin1(string.as_bytes()) {
+      Ok(ByteString(string.into_bytes()))
+    } else {
+      Err(D::Error::custom("minus_v8: ExpectedLatin1"))
+    }
+  }
 }
 
 impl Into<Vec<u8>> for ByteString {

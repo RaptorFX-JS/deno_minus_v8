@@ -23,6 +23,7 @@ deno_ops = { path = "../ops", version = "0.18.0" }
 # keep derive_more in sync with the dependency from serde_v8
 derive_more = "0.99.17"
 downcast-rs = "1.2.0"
+encoding_rs = "0.8.31"
 erased-serde = "0.3.21"
 # -------------------------
 futures = "0.3.21"
