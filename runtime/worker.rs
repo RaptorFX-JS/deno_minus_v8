@@ -114,12 +114,6 @@ impl MainWorker {
         ..Default::default()
       }),
       deno_websocket::init::<Permissions>(
-        // TODO(minus_v8) the final runtime has two WebSocket instances: the Deno
-        //                one used in the HTTP API and the runtime-provided one
-        //                used for everything else. This might cause surprising
-        //                behavior depending on how websockets are used.
-        //                Should we, at the cost of performance, replace the
-        //                runtime-provided API with ours?
         options.bootstrap.user_agent.clone(),
         options.root_cert_store.clone(),
         options.unsafely_ignore_certificate_errors.clone(),

@@ -98,9 +98,7 @@ where
       "22_http_client.js",
       "23_request.js",
       "23_response.js",
-      // minus_v8: 01_http depends on internal impl details of fetch,
-      // but we don't need to expose our own fetch impl
-      // "26_fetch.js",
+      "26_fetch.js",
     ))
     .ops(vec![
       // op_fetch::decl::<FP>(),

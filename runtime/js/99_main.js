@@ -32,6 +32,8 @@ delete Intl.v8BreakIterator;
   const internals = window.__bootstrap.internals;
   const performance = window.__bootstrap.performance;
   const url = window.__bootstrap.url;
+  const webSocket = window.__bootstrap.webSocket;
+  const fetch = window.__bootstrap.fetch;
   const denoNs = window.__bootstrap.denoNs;
   const denoNsUnstable = window.__bootstrap.denoNsUnstable;
   const errors = window.__bootstrap.errors.errors;
@@ -188,6 +190,18 @@ delete Intl.v8BreakIterator;
     );
   }
 
+  // https://developer.mozilla.org/en-US/docs/Web/API/WindowOrWorkerGlobalScope
+  const windowOrWorkerGlobalScope = {
+    Request: util.nonEnumerable(fetch.Request),
+    Response: util.nonEnumerable(fetch.Response),
+    WebSocket: util.nonEnumerable(webSocket.WebSocket),
+    fetch: util.writable(fetch.fetch),
+  };
+
+  const unstableWindowOrWorkerGlobalScope = {
+    WebSocketStream: util.nonEnumerable(webSocket.WebSocketStream),
+  };
+
   let hasBootstrapped = false;
 
   function bootstrapMainRuntime(runtimeOptions) {
@@ -204,6 +218,10 @@ delete Intl.v8BreakIterator;
     delete globalThis.bootstrap;
     util.log("bootstrapMainRuntime");
     hasBootstrapped = true;
+    ObjectDefineProperties(globalThis, windowOrWorkerGlobalScope);
+    if (runtimeOptions.unstableFlag) {
+      ObjectDefineProperties(globalThis, unstableWindowOrWorkerGlobalScope);
+    }
 
     // const consoleFromDeno = globalThis.console;
     // wrapConsole(consoleFromDeno, consoleFromV8);

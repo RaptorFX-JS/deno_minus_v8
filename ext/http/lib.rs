@@ -553,7 +553,7 @@ async fn op_http_write_headers(
   };
 
   match response_tx.send(body) {
-    Ok(_) => Ok(()),
+    Ok(_) =>Ok(()),
     Err(_) => {
       stream.conn.closed().await?;
       Err(http_error("connection closed while sending response"))
