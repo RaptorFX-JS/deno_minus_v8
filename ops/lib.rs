@@ -2,7 +2,6 @@
 
 use attrs::Attributes;
 use once_cell::sync::Lazy;
-use optimizer::BailoutReason;
 use optimizer::Optimizer;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -84,13 +83,9 @@ impl Op {
 
   fn gen(mut self) -> TokenStream2 {
     let mut optimizer = Optimizer::new();
-    match optimizer.analyze(&mut self) {
-      Err(BailoutReason::MustBeSingleSegment)
-      | Err(BailoutReason::FastUnsupportedParamType) => {
-        optimizer.fast_compatible = false;
-      }
-      _ => {}
-    };
+    // minus_v8: fast api calls are strictly a v8 thing
+    let _ = optimizer.analyze(&mut self);
+    optimizer.fast_compatible = false;
 
     let Self {
       core,
@@ -107,7 +102,7 @@ impl Op {
     // First generate fast call bindings to opt-in to error handling in slow call
     let fast_call::FastImplItems {
       impl_and_fn,
-      decl,
+      decl: _,
       active,
     } = fast_call::generate(&core, &mut optimizer, &item);
 
@@ -154,7 +149,6 @@ impl Op {
             name: Self::name(),
             v8_fn_ptr: Self::v8_fn_ptr::<#type_params>(),
             enabled: true,
-            fast_fn: #decl,
             is_async: #is_async,
             is_unstable: #is_unstable,
             is_v8: #is_v8,
@@ -168,8 +162,8 @@ impl Op {
 
         pub fn v8_func #generics (
           scope: &mut #core::v8::HandleScope<'scope>,
-          args: #core::v8::FunctionCallbackArguments,
-          mut rv: #core::v8::ReturnValue,
+          mut args: #core::v8::FunctionCallbackArguments<'scope>,
+          rv: &mut #core::v8::ReturnValue<'scope>,
         ) #where_clause {
           #v8_body
         }
@@ -243,18 +237,15 @@ fn codegen_v8_async(
   (
     quote! {
       use #core::futures::FutureExt;
-      // SAFETY: #core guarantees args.data() is a v8 External pointing to an OpCtx for the isolates lifetime
+      // SAFETY: #core guarantees args.data points to an OpCtx for the isolates lifetime
       let ctx = unsafe {
-        &*(#core::v8::Local::<#core::v8::External>::cast(args.data()).value()
-        as *const #core::_ops::OpCtx)
+        &*(args.data as *const #core::_ops::OpCtx)
       };
       let op_id = ctx.id;
       let realm_idx = ctx.realm_idx;
 
       let promise_id = args.get(0);
-      let promise_id = #core::v8::Local::<#core::v8::Integer>::try_from(promise_id)
-        .map(|l| l.value() as #core::PromiseId)
-        .map_err(#core::anyhow::Error::from);
+      let promise_id = #core::serde_v8::from_backend(scope, promise_id);
       // Fail if promise id invalid (not an int)
       let promise_id: #core::PromiseId = match promise_id {
         Ok(promise_id) => promise_id,
@@ -351,10 +342,9 @@ fn codegen_v8_sync(
 
   (
     quote! {
-      // SAFETY: #core guarantees args.data() is a v8 External pointing to an OpCtx for the isolates lifetime
+      // SAFETY: #core guarantees args.data points to an OpCtx for the isolates lifetime
       let ctx = unsafe {
-        &*(#core::v8::Local::<#core::v8::External>::cast(args.data()).value()
-        as *const #core::_ops::OpCtx)
+        &*(args.data as *const #core::_ops::OpCtx)
       };
 
       #fast_error_handler
@@ -404,10 +394,10 @@ fn codegen_arg(
   arg: &syn::FnArg,
   name: &str,
   idx: usize,
-  asyncness: bool,
+  _asyncness: bool,
 ) -> TokenStream2 {
   let ident = quote::format_ident!("{name}");
-  let (pat, ty) = match arg {
+  let (pat, _ty) = match arg {
     syn::FnArg::Typed(pat) => {
       if is_optional_fast_callback_option(&pat.ty)
         || is_optional_wasm_memory(&pat.ty)
@@ -422,6 +412,9 @@ fn codegen_arg(
   if matches!(**pat, syn::Pat::Wild(_)) {
     return quote! { let #ident = (); };
   }
+
+  // minus_v8: these fast paths are fundamentally unsupportable
+  /*
   // Fast path for `String`
   if is_string(&**ty) {
     return quote! {
@@ -467,10 +460,12 @@ fn codegen_arg(
       let #ident = #blk;
     };
   }
+  */
+
   // Otherwise deserialize it via serde_v8
   quote! {
     let #ident = args.get(#idx as i32);
-    let #ident = match #core::serde_v8::from_v8(scope, #ident) {
+    let #ident = match #core::serde_v8::from_backend(scope, #ident) {
       Ok(v) => v,
       Err(err) => {
         let msg = format!("Error parsing args at position {}: {}", #idx, #core::anyhow::Error::from(err));
@@ -480,6 +475,7 @@ fn codegen_arg(
   }
 }
 
+/*
 fn codegen_u8_slice(core: &TokenStream2, idx: usize) -> TokenStream2 {
   quote! {{
     let value = args.get(#idx as i32);
@@ -575,6 +571,7 @@ fn codegen_u32_mut_slice(core: &TokenStream2, idx: usize) -> TokenStream2 {
     }
   }
 }
+*/
 
 fn codegen_sync_ret(
   core: &TokenStream2,
@@ -599,7 +596,7 @@ fn codegen_sync_ret(
     }
   } else {
     quote! {
-      match #core::serde_v8::to_v8(scope, result) {
+      match #core::serde_v8::to_backend(scope, result) {
         Ok(ret) => rv.set(ret),
         Err(err) => #core::_ops::throw_type_error(
           scope,

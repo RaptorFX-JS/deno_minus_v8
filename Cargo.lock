@@ -957,17 +957,17 @@ dependencies = [
  "indexmap",
  "libc",
  "log",
+ "minus_v8",
  "once_cell",
  "parking_lot 0.12.1",
  "pin-project",
  "serde",
  "serde_json",
- "serde_v8",
+ "serde_minus_v8",
  "smallvec",
  "sourcemap",
  "tokio",
  "url",
- "v8",
 ]
 
 [[package]]
@@ -1225,25 +1225,15 @@ version = "0.97.0"
 dependencies = [
  "atty",
  "deno_ast",
- "deno_broadcast_channel",
  "deno_cache",
- "deno_console",
  "deno_core",
- "deno_crypto",
  "deno_fetch",
- "deno_ffi",
- "deno_flash",
  "deno_http",
- "deno_napi",
  "deno_net",
- "deno_node",
  "deno_tls",
  "deno_url",
- "deno_web",
- "deno_webgpu",
  "deno_webidl",
  "deno_websocket",
- "deno_webstorage",
  "dlopen",
  "encoding_rs",
  "filetime",
@@ -1259,7 +1249,9 @@ dependencies = [
  "notify",
  "ntapi",
  "once_cell",
+ "rand",
  "regex",
+ "reqwest",
  "ring",
  "serde",
  "signal-hook-registry",
@@ -1470,6 +1462,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "dprint-core"
 version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1661,6 +1659,15 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
+]
+
+[[package]]
+name = "erased-serde"
+version = "0.3.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4ca605381c017ec7a5fef5e548f1cfaa419ed0f6df6367339300db74c92aa7d"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -1883,16 +1890,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "76ee7a02da4d231650c7cea31349b889be2f45ddb3ef3032d2ec8185f6313fd2"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "fslock"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57eafdd0c16f57161105ae1b98a1238f97645f2f588438b2949c99a2af9616bf"
-dependencies = [
- "libc",
- "winapi",
 ]
 
 [[package]]
@@ -2868,6 +2865,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96590ba8f175222643a85693f33d26e9c8a015f599c216509b1a6894af675d34"
 dependencies = [
  "adler",
+]
+
+[[package]]
+name = "minus_v8"
+version = "0.63.0"
+dependencies = [
+ "anyhow",
+ "bencher",
+ "bytes",
+ "derive_more",
+ "downcast-rs",
+ "encoding_rs",
+ "erased-serde",
+ "log",
+ "serde",
+ "serde_bytes",
+ "serde_json",
+ "smallvec",
 ]
 
 [[package]]
@@ -4067,6 +4082,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_minus_v8"
+version = "0.82.0"
+dependencies = [
+ "minus_v8",
+]
+
+[[package]]
 name = "serde_repr"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4100,7 +4122,6 @@ dependencies = [
  "serde_bytes",
  "serde_json",
  "smallvec",
- "v8",
 ]
 
 [[package]]
@@ -5514,18 +5535,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "v8"
-version = "0.63.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "547e58962ac268fe0b1fbfb653ed341a08e3953994f7f7c978e46ec30afdf8f0"
-dependencies = [
- "bitflags",
- "fslock",
- "lazy_static",
- "which",
-]
-
-[[package]]
 name = "vcpkg"
 version = "0.2.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5779,17 +5788,6 @@ dependencies = [
  "js-sys",
  "serde",
  "web-sys",
-]
-
-[[package]]
-name = "which"
-version = "4.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2441c784c52b289a054b7201fc93253e288f094e2f4be9058343127c4226a269"
-dependencies = [
- "either",
- "libc",
- "once_cell",
 ]
 
 [[package]]

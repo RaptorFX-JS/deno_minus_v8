@@ -33,7 +33,7 @@ pub fn init() -> Extension {
     .ops(vec![
       op_http_start::decl(),
       op_http_upgrade::decl(),
-      op_flash_upgrade_http::decl(),
+      // op_flash_upgrade_http::decl(),
     ])
     .build()
 }
@@ -94,6 +94,7 @@ fn op_http_start(
   Err(bad_resource_id())
 }
 
+/*
 #[op]
 fn op_flash_upgrade_http(
   state: &mut OpState,
@@ -110,6 +111,7 @@ fn op_flash_upgrade_http(
       .add(TcpStreamResource::new(tcp_stream.into_split())),
   )
 }
+*/
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]

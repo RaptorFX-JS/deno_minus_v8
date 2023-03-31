@@ -105,18 +105,18 @@ pub enum Op {
 }
 
 pub enum OpResult {
-  Ok(serde_v8::SerializablePkg),
+  Ok(Box<dyn serde_v8::ErasedSerialize>),
   Err(OpError),
 }
 
 impl OpResult {
   pub fn to_v8<'a>(
-    &mut self,
-    scope: &mut v8::HandleScope<'a>,
-  ) -> Result<v8::Local<'a, v8::Value>, serde_v8::Error> {
+    self,
+    _scope: &mut v8::HandleScope<'a>,
+  ) -> Result<Box<dyn serde_v8::ErasedSerialize>, serde_v8::Error> {
     match self {
-      Self::Ok(x) => x.to_v8(scope),
-      Self::Err(err) => serde_v8::to_v8(scope, err),
+      Self::Ok(x) => Ok(x),
+      Self::Err(err) => Ok(Box::new(err)),
     }
   }
 }
@@ -145,7 +145,7 @@ pub fn to_op_result<R: Serialize + 'static>(
   result: Result<R, Error>,
 ) -> OpResult {
   match result {
-    Ok(v) => OpResult::Ok(v.into()),
+    Ok(v) => OpResult::Ok(Box::new(v)),
     Err(err) => OpResult::Err(OpError::new(get_class, err)),
   }
 }

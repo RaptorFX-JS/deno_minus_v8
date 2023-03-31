@@ -2,23 +2,23 @@
 
 use deno_core::include_js_files_dir;
 use std::env;
-use std::path::PathBuf;
 
 // This is a shim that allows to generate documentation on docs.rs
-mod not_docs {
+pub mod not_docs {
   use std::path::Path;
 
   use super::*;
-  use deno_cache::SqliteBackedCache;
-  use deno_core::snapshot_util::*;
   use deno_core::Extension;
 
+  /*
   use deno_ast::MediaType;
   use deno_ast::ParseParams;
   use deno_ast::SourceTextInfo;
+  */
   use deno_core::error::AnyError;
   use deno_core::ExtensionFileSource;
 
+  /*
   fn transpile_ts_for_snapshotting(
     file_source: &ExtensionFileSource,
   ) -> Result<String, AnyError> {
@@ -54,6 +54,7 @@ mod not_docs {
 
     Ok(transpiled_source.text)
   }
+  */
 
   struct Permissions;
 
@@ -85,6 +86,7 @@ mod not_docs {
     }
   }
 
+  /*
   impl deno_web::TimersPermission for Permissions {
     fn allow_hrtime(&mut self) -> bool {
       unreachable!("snapshotting!")
@@ -135,6 +137,7 @@ mod not_docs {
       unreachable!("snapshotting!")
     }
   }
+  */
 
   impl deno_net::NetPermissions for Permissions {
     fn check_net<T: AsRef<str>>(
@@ -162,10 +165,10 @@ mod not_docs {
     }
   }
 
+  #[allow(unreachable_code)]
   fn create_runtime_snapshot(
-    snapshot_path: PathBuf,
     maybe_additional_extension: Option<Extension>,
-  ) {
+  ) -> Vec<Extension> {
     let runtime_extension = Extension::builder("runtime")
       .dependencies(vec![
         "deno_webidl",
@@ -216,6 +219,7 @@ mod not_docs {
       ))
       .build();
 
+    /*
     let mut extensions_with_js: Vec<Extension> = vec![
       deno_webidl::init(),
       deno_console::init(),
@@ -249,34 +253,22 @@ mod not_docs {
       deno_node::init::<Permissions>(None),
       deno_node::init_polyfill(),
     ];
+    */
+
+    let mut extensions_with_js: Vec<Extension> = vec![runtime_extension];
 
     if let Some(additional_extension) = maybe_additional_extension {
       extensions_with_js.push(additional_extension);
     }
 
-    create_snapshot(CreateSnapshotOptions {
-      cargo_manifest_dir: env!("CARGO_MANIFEST_DIR"),
-      snapshot_path,
-      startup_snapshot: None,
-      extensions: vec![],
-      extensions_with_js,
-      compression_cb: Some(Box::new(|vec, snapshot_slice| {
-        lzzzz::lz4_hc::compress_to_vec(
-          snapshot_slice,
-          vec,
-          lzzzz::lz4_hc::CLEVEL_MAX,
-        )
-        .expect("snapshot compression failed");
-      })),
-      snapshot_module_load_cb: Some(Box::new(transpile_ts_for_snapshotting)),
-    });
+    extensions_with_js
   }
 
-  pub fn build_snapshot(runtime_snapshot_path: PathBuf) {
+  pub fn build_snapshot() -> Vec<Extension> {
     #[allow(unused_mut, unused_assignments)]
     let mut maybe_additional_extension = None;
 
-    #[cfg(not(feature = "snapshot_from_snapshot"))]
+    // #[cfg(not(feature = "snapshot_from_snapshot"))]
     {
       maybe_additional_extension = Some(
         Extension::builder("runtime_main")
@@ -289,7 +281,7 @@ mod not_docs {
       );
     }
 
-    create_runtime_snapshot(runtime_snapshot_path, maybe_additional_extension);
+    create_runtime_snapshot(maybe_additional_extension)
   }
 }
 
@@ -299,19 +291,8 @@ fn main() {
 
   println!("cargo:rustc-env=TARGET={}", env::var("TARGET").unwrap());
   println!("cargo:rustc-env=PROFILE={}", env::var("PROFILE").unwrap());
-  let o = PathBuf::from(env::var_os("OUT_DIR").unwrap());
 
-  // Main snapshot
-  let runtime_snapshot_path = o.join("RUNTIME_SNAPSHOT.bin");
-
-  // If we're building on docs.rs we just create
-  // and empty snapshot file and return, because `rusty_v8`
-  // doesn't actually compile on docs.rs
-  if env::var_os("DOCS_RS").is_some() {
-    let snapshot_slice = &[];
-    std::fs::write(&runtime_snapshot_path, snapshot_slice).unwrap();
-  }
-
-  #[cfg(not(feature = "docsrs"))]
-  not_docs::build_snapshot(runtime_snapshot_path)
+  // minus_v8: since we don't have the luxury of snapshots nothing needs to be done in build.rs
+  // for easier merging with upstream the list of extensions is include!'d from this file in
+  // runtime/js.rs
 }

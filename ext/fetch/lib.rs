@@ -96,7 +96,7 @@ where
   FP: FetchPermissions + 'static,
 {
   Extension::builder(env!("CARGO_PKG_NAME"))
-    .dependencies(vec!["deno_webidl", "deno_web", "deno_url", "deno_console"])
+    .dependencies(vec!["deno_webidl", "deno_web", "deno_url"/*, "deno_console"*/])
     .esm(include_js_files!(
       "20_headers.js",
       "21_formdata.js",
@@ -107,8 +107,8 @@ where
       "26_fetch.js",
     ))
     .ops(vec![
-      op_fetch::decl::<FP>(),
-      op_fetch_send::decl(),
+      // op_fetch::decl::<FP>(),
+      // op_fetch_send::decl(),
       op_fetch_custom_client::decl::<FP>(),
     ])
     .state(move |state| {
@@ -284,7 +284,9 @@ where
           }
           Some(data) => {
             // If a body is passed, we use it, and don't return a body for streaming.
-            request = request.body(Vec::from(&*data));
+            // minus_v8: slightly changed the below to work with our ZeroCopyBuf impl
+            let vec: Vec<u8> = data.into();
+            request = request.body(vec);
             None
           }
         }

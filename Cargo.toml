@@ -7,6 +7,8 @@ members = [
   "cli",
   "cli/napi/sym",
   "core",
+  "minus_v8",
+  "minus_v8/serde_v8",
   "ops",
   "runtime",
   "serde_v8",
@@ -41,12 +43,12 @@ license = "MIT"
 repository = "https://github.com/denoland/deno"
 
 [workspace.dependencies]
-v8 = { version = "0.63.0", default-features = false }
+v8 = { package = "minus_v8", version = "0.63.0", path = "./minus_v8", default-features = false }
 deno_ast = { version = "0.24.0", features = ["transpiling"] }
 
 deno_core = { version = "0.171.0", path = "./core" }
 deno_ops = { version = "0.49.0", path = "./ops" }
-serde_v8 = { version = "0.82.0", path = "./serde_v8" }
+serde_v8 = { package = "serde_minus_v8", version = "0.82.0", path = "./minus_v8/serde_v8", default-features = false }
 deno_runtime = { version = "0.97.0", path = "./runtime" }
 napi_sym = { version = "0.19.0", path = "./cli/napi/sym" }
 deno_bench_util = { version = "0.83.0", path = "./bench_util" }
@@ -199,6 +201,8 @@ opt-level = 3
 opt-level = 3
 [profile.bench.package.deno_crypto]
 opt-level = 3
+[profile.bench.package.minus_v8]
+opt-level = 3
 [profile.bench.package.num-bigint-dig]
 opt-level = 3
 [profile.bench.package.v8]
@@ -270,6 +274,8 @@ opt-level = 3
 [profile.release.package.deno_napi]
 opt-level = 3
 [profile.release.package.test_napi]
+opt-level = 3
+[profile.release.package.minus_v8]
 opt-level = 3
 [profile.release.package.num-bigint-dig]
 opt-level = 3

@@ -1,0 +1,33 @@
+# Copyright 2022-2023 the RaptorFX Team
+
+[package]
+name = "minus_v8"
+version = "0.63.0"
+authors = ["the RaptorFX Team"]
+edition.workspace = true
+license.workspace = true
+readme = "README.md"
+repository.workspace = true
+description = "Polyfill for v8 that delegates to an arbitrary JS engine backend"
+
+[lib]
+path = "lib.rs"
+
+[features]
+use_custom_libcxx = []
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+derive_more = "0.99.17"
+downcast-rs = "=1.2.0"
+encoding_rs.workspace = true
+erased-serde = "=0.3.24"
+log.workspace = true
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_bytes.workspace = true
+smallvec = { workspace = true, features = ["union"] }
+
+[dev-dependencies]
+bencher.workspace = true
+serde_json.workspace = true

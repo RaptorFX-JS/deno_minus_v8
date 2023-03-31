@@ -1,13 +1,16 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
+
+#![allow(unused_qualifications)] // deno_minus_v8: deno spams v8 prefixes everywhere
+
 mod async_cancel;
 mod async_cell;
 mod bindings;
 pub mod error;
 mod error_codes;
 mod extensions;
-mod flags;
-mod gotham_state;
-mod inspector;
+mod gotham_state {
+  pub use v8::GothamState;
+}
 mod io;
 mod module_specifier;
 mod modules;
@@ -18,7 +21,6 @@ mod ops_builtin_v8;
 mod ops_metrics;
 mod resources;
 mod runtime;
-pub mod snapshot_util;
 mod source_map;
 
 // Re-exports
@@ -29,9 +31,9 @@ pub use serde;
 pub use serde_json;
 pub use serde_v8;
 pub use serde_v8::ByteString;
-pub use serde_v8::DetachedBuffer;
+// pub use serde_v8::DetachedBuffer;
 pub use serde_v8::StringOrBuffer;
-pub use serde_v8::U16String;
+// pub use serde_v8::U16String;
 pub use serde_v8::ZeroCopyBuf;
 pub use sourcemap;
 pub use url;
@@ -57,12 +59,6 @@ pub use crate::extensions::ExtensionBuilder;
 pub use crate::extensions::ExtensionFileSource;
 pub use crate::extensions::OpDecl;
 pub use crate::extensions::OpMiddlewareFn;
-pub use crate::flags::v8_set_flags;
-pub use crate::inspector::InspectorMsg;
-pub use crate::inspector::InspectorMsgKind;
-pub use crate::inspector::InspectorSessionProxy;
-pub use crate::inspector::JsRuntimeInspector;
-pub use crate::inspector::LocalInspectorSession;
 pub use crate::io::BufMutView;
 pub use crate::io::BufView;
 pub use crate::io::WriteOutcome;
@@ -73,16 +69,7 @@ pub use crate::module_specifier::resolve_url_or_path;
 pub use crate::module_specifier::ModuleResolutionError;
 pub use crate::module_specifier::ModuleSpecifier;
 pub use crate::module_specifier::DUMMY_SPECIFIER;
-pub use crate::modules::FsModuleLoader;
-pub use crate::modules::InternalModuleLoader;
-pub use crate::modules::InternalModuleLoaderCb;
 pub use crate::modules::ModuleId;
-pub use crate::modules::ModuleLoader;
-pub use crate::modules::ModuleSource;
-pub use crate::modules::ModuleSourceFuture;
-pub use crate::modules::ModuleType;
-pub use crate::modules::NoopModuleLoader;
-pub use crate::modules::ResolutionKind;
 pub use crate::normalize_path::normalize_path;
 pub use crate::ops::Op;
 pub use crate::ops::OpAsyncFuture;
@@ -103,15 +90,10 @@ pub use crate::resources::AsyncResult;
 pub use crate::resources::Resource;
 pub use crate::resources::ResourceId;
 pub use crate::resources::ResourceTable;
-pub use crate::runtime::CompiledWasmModuleStore;
-pub use crate::runtime::CrossIsolateStore;
 pub use crate::runtime::GetErrorClassFn;
-pub use crate::runtime::JsErrorCreateFn;
 pub use crate::runtime::JsRealm;
 pub use crate::runtime::JsRuntime;
 pub use crate::runtime::RuntimeOptions;
-pub use crate::runtime::SharedArrayBufferStore;
-pub use crate::runtime::Snapshot;
 pub use crate::runtime::V8_WRAPPER_OBJECT_INDEX;
 pub use crate::runtime::V8_WRAPPER_TYPE_INDEX;
 pub use crate::source_map::SourceMapGetter;

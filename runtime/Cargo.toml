@@ -25,25 +25,25 @@ path = "examples/hello_runtime.rs"
 
 [build-dependencies]
 deno_ast.workspace = true
-deno_broadcast_channel.workspace = true
+# deno_broadcast_channel.workspace = true
 deno_cache.workspace = true
-deno_console.workspace = true
+# deno_console.workspace = true
 deno_core.workspace = true
-deno_crypto.workspace = true
+# deno_crypto.workspace = true
 deno_fetch.workspace = true
-deno_ffi.workspace = true
-deno_flash.workspace = true
+# deno_ffi.workspace = true
+# deno_flash.workspace = true
 deno_http.workspace = true
 deno_net.workspace = true
-deno_node.workspace = true
+# deno_node.workspace = true
 deno_tls.workspace = true
 deno_url.workspace = true
-deno_web.workspace = true
-deno_webgpu.workspace = true
+# deno_web.workspace = true
+# deno_webgpu.workspace = true
 deno_webidl.workspace = true
 deno_websocket.workspace = true
-deno_webstorage.workspace = true
-deno_napi.workspace = true
+# deno_webstorage.workspace = true
+# deno_napi.workspace = true
 
 lzzzz.workspace = true
 
@@ -52,25 +52,25 @@ winres.workspace = true
 winapi.workspace = true
 
 [dependencies]
-deno_broadcast_channel.workspace = true
+# deno_broadcast_channel.workspace = true
 deno_cache.workspace = true
-deno_console.workspace = true
+# deno_console.workspace = true
 deno_core.workspace = true
-deno_crypto.workspace = true
+# deno_crypto.workspace = true
 deno_fetch.workspace = true
-deno_ffi.workspace = true
-deno_flash.workspace = true
+# deno_ffi.workspace = true
+# deno_flash.workspace = true
 deno_http.workspace = true
-deno_napi.workspace = true
+# deno_napi.workspace = true
 deno_net.workspace = true
-deno_node.workspace = true
+# deno_node.workspace = true
 deno_tls.workspace = true
 deno_url.workspace = true
-deno_web.workspace = true
-deno_webgpu.workspace = true
+# deno_web.workspace = true
+# deno_webgpu.workspace = true
 deno_webidl.workspace = true
 deno_websocket.workspace = true
-deno_webstorage.workspace = true
+# deno_webstorage.workspace = true
 
 atty.workspace = true
 dlopen.workspace = true
@@ -85,7 +85,9 @@ lzzzz.workspace = true
 netif = "0.1.6"
 notify.workspace = true
 once_cell.workspace = true
+rand.workspace = true
 regex.workspace = true
+reqwest.workspace = true
 ring.workspace = true
 serde.workspace = true
 signal-hook-registry = "1.4.0"
@@ -95,7 +97,8 @@ uuid.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 fwdansi.workspace = true
-winapi = { workspace = true, features = ["commapi", "knownfolders", "mswsock", "objbase", "psapi", "shlobj", "tlhelp32", "winbase", "winerror", "winsock2"] }
+# minus_v8: enable `winuser` feature (this appears to be transitively enabled by a dependency we remove for minus_v8?)
+winapi = { workspace = true, features = ["commapi", "knownfolders", "mswsock", "objbase", "psapi", "shlobj", "tlhelp32", "winbase", "winerror", "winsock2", "winuser"] }
 ntapi = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]

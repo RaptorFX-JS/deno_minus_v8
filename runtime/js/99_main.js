@@ -12,32 +12,17 @@ const ops = core.ops;
 const internals = globalThis.__bootstrap.internals;
 const primordials = globalThis.__bootstrap.primordials;
 const {
-  ArrayPrototypeIndexOf,
-  ArrayPrototypePush,
-  ArrayPrototypeShift,
-  ArrayPrototypeSplice,
   ArrayPrototypeMap,
   DateNow,
   Error,
-  ErrorPrototype,
-  FunctionPrototypeCall,
-  FunctionPrototypeBind,
   ObjectAssign,
   ObjectDefineProperty,
   ObjectDefineProperties,
   ObjectFreeze,
-  ObjectPrototypeIsPrototypeOf,
   ObjectSetPrototypeOf,
-  PromiseResolve,
   Symbol,
   SymbolFor,
-  SymbolIterator,
-  PromisePrototypeThen,
-  SafeWeakMap,
   TypeError,
-  WeakMapPrototypeDelete,
-  WeakMapPrototypeGet,
-  WeakMapPrototypeSet,
 } = primordials;
 import * as util from "internal:runtime/js/06_util.js";
 import * as event from "internal:deno_web/02_event.js";
@@ -45,51 +30,19 @@ import * as location from "internal:deno_web/12_location.js";
 import * as build from "internal:runtime/js/01_build.js";
 import * as version from "internal:runtime/js/01_version.ts";
 import * as os from "internal:runtime/js/30_os.js";
-import * as timers from "internal:deno_web/02_timers.js";
 import * as colors from "internal:deno_console/01_colors.js";
 import * as net from "internal:deno_net/01_net.js";
-import {
-  inspectArgs,
-  quoteString,
-  wrapConsole,
-} from "internal:deno_console/02_console.js";
 import * as performance from "internal:deno_web/15_performance.js";
 import * as url from "internal:deno_url/00_url.js";
-import * as fetch from "internal:deno_fetch/26_fetch.js";
-import * as messagePort from "internal:deno_web/13_message_port.js";
 import { denoNs, denoNsUnstable } from "internal:runtime/js/90_deno_ns.js";
 import { errors } from "internal:runtime/js/01_errors.js";
-import * as webidl from "internal:deno_webidl/00_webidl.js";
-import DOMException from "internal:deno_web/01_dom_exception.js";
-import * as flash from "internal:deno_flash/01_http.js";
+// import * as flash from "internal:deno_flash/01_http.js";
 import {
-  mainRuntimeGlobalProperties,
-  setLanguage,
-  setNumCpus,
-  setUserAgent,
   unstableWindowOrWorkerGlobalScope,
   windowOrWorkerGlobalScope,
-  workerRuntimeGlobalProperties,
 } from "internal:runtime/js/98_global_scope.js";
 
-let windowIsClosing = false;
 let globalThis_;
-
-function windowClose() {
-  if (!windowIsClosing) {
-    windowIsClosing = true;
-    // Push a macrotask to exit after a promise resolve.
-    // This is not perfect, but should be fine for first pass.
-    PromisePrototypeThen(
-      PromiseResolve(),
-      () =>
-        FunctionPrototypeCall(timers.setTimeout, null, () => {
-          // This should be fine, since only Window/MainWorker has .close()
-          os.exit(0);
-        }, 0),
-    );
-  }
-}
 
 function workerClose() {
   if (isClosing) {
@@ -100,80 +53,7 @@ function workerClose() {
   ops.op_worker_close();
 }
 
-function postMessage(message, transferOrOptions = {}) {
-  const prefix =
-    "Failed to execute 'postMessage' on 'DedicatedWorkerGlobalScope'";
-  webidl.requiredArguments(arguments.length, 1, { prefix });
-  message = webidl.converters.any(message);
-  let options;
-  if (
-    webidl.type(transferOrOptions) === "Object" &&
-    transferOrOptions !== undefined &&
-    transferOrOptions[SymbolIterator] !== undefined
-  ) {
-    const transfer = webidl.converters["sequence<object>"](
-      transferOrOptions,
-      { prefix, context: "Argument 2" },
-    );
-    options = { transfer };
-  } else {
-    options = webidl.converters.StructuredSerializeOptions(
-      transferOrOptions,
-      {
-        prefix,
-        context: "Argument 2",
-      },
-    );
-  }
-  const { transfer } = options;
-  const data = messagePort.serializeJsMessageData(message, transfer);
-  ops.op_worker_post_message(data);
-}
-
 let isClosing = false;
-let globalDispatchEvent;
-
-async function pollForMessages() {
-  if (!globalDispatchEvent) {
-    globalDispatchEvent = FunctionPrototypeBind(
-      globalThis.dispatchEvent,
-      globalThis,
-    );
-  }
-  while (!isClosing) {
-    const data = await core.opAsync("op_worker_recv_message");
-    if (data === null) break;
-    const v = messagePort.deserializeJsMessageData(data);
-    const message = v[0];
-    const transferables = v[1];
-
-    const msgEvent = new event.MessageEvent("message", {
-      cancelable: false,
-      data: message,
-      ports: transferables.filter((t) =>
-        ObjectPrototypeIsPrototypeOf(messagePort.MessagePortPrototype, t)
-      ),
-    });
-
-    try {
-      globalDispatchEvent(msgEvent);
-    } catch (e) {
-      const errorEvent = new event.ErrorEvent("error", {
-        cancelable: true,
-        message: e.message,
-        lineno: e.lineNumber ? e.lineNumber + 1 : undefined,
-        colno: e.columnNumber ? e.columnNumber + 1 : undefined,
-        filename: e.fileName,
-        error: e,
-      });
-
-      globalDispatchEvent(errorEvent);
-      if (!errorEvent.defaultPrevented) {
-        throw e;
-      }
-    }
-  }
-}
 
 let loadedMainWorkerScript = false;
 
@@ -217,6 +97,8 @@ function opMainModule() {
   return ops.op_main_module();
 }
 
+// TODO(minus_v8) format exception callback
+/*
 function formatException(error) {
   if (ObjectPrototypeIsPrototypeOf(ErrorPrototype, error)) {
     return null;
@@ -230,13 +112,15 @@ function formatException(error) {
     return `Uncaught ${inspectArgs([error], { colors: !colors.getNoColor() })}`;
   }
 }
+*/
 
 function runtimeStart(runtimeOptions, source) {
-  core.setMacrotaskCallback(timers.handleTimerMacrotask);
-  core.setMacrotaskCallback(promiseRejectMacrotaskCallback);
-  core.setWasmStreamingCallback(fetch.handleWasmStreaming);
-  core.setReportExceptionCallback(event.reportException);
-  ops.op_set_format_exception_callback(formatException);
+  // core.setMacrotaskCallback(timers.handleTimerMacrotask);
+  // core.setMacrotaskCallback(promiseRejectMacrotaskCallback);
+  // core.setWasmStreamingCallback(fetch.handleWasmStreaming);
+  // core.setReportExceptionCallback(event.reportException);
+  // TODO(minus_v8) format exception callback
+  // ops.op_set_format_exception_callback(formatException);
   version.setVersions(
     runtimeOptions.denoVersion,
     runtimeOptions.v8Version,
@@ -315,6 +199,7 @@ function registerErrors() {
   );
 }
 
+/*
 const pendingRejections = [];
 const pendingRejectionsReasons = new SafeWeakMap();
 
@@ -385,6 +270,7 @@ function promiseRejectMacrotaskCallback() {
   }
   return true;
 }
+*/
 
 let hasBootstrapped = false;
 
@@ -394,10 +280,7 @@ function bootstrapMainRuntime(runtimeOptions) {
   }
 
   core.initializeAsyncOps();
-  performance.setTimeOrigin(DateNow());
   globalThis_ = globalThis;
-
-  const consoleFromV8 = globalThis.Deno.core.console;
 
   // Remove bootstrapping data from the global scope
   delete globalThis.__bootstrap;
@@ -419,17 +302,6 @@ function bootstrapMainRuntime(runtimeOptions) {
   ObjectDefineProperties(globalThis, windowOrWorkerGlobalScope);
   if (runtimeOptions.unstableFlag) {
     ObjectDefineProperties(globalThis, unstableWindowOrWorkerGlobalScope);
-  }
-  ObjectDefineProperties(globalThis, mainRuntimeGlobalProperties);
-  ObjectDefineProperties(globalThis, {
-    close: util.writable(windowClose),
-    closed: util.getterOnly(() => windowIsClosing),
-  });
-  ObjectSetPrototypeOf(globalThis, Window.prototype);
-
-  if (runtimeOptions.inspectFlag) {
-    const consoleFromDeno = globalThis.console;
-    wrapConsole(consoleFromDeno, consoleFromV8);
   }
 
   event.setEventTargetData(globalThis);
@@ -454,25 +326,7 @@ function bootstrapMainRuntime(runtimeOptions) {
 
   runtimeStart(runtimeOptions);
 
-  setNumCpus(runtimeOptions.cpuCount);
-  setUserAgent(runtimeOptions.userAgent);
-  setLanguage(runtimeOptions.locale);
-
   const internalSymbol = Symbol("Deno.internal");
-
-  // These have to initialized here and not in `90_deno_ns.js` because
-  // the op function that needs to be passed will be invalidated by creating
-  // a snapshot
-  ObjectAssign(internals, {
-    nodeUnstable: {
-      serve: flash.createServe(ops.op_node_unstable_flash_serve),
-      upgradeHttpRaw: flash.upgradeHttpRaw,
-      listenDatagram: net.createListenDatagram(
-        ops.op_node_unstable_net_listen_udp,
-        ops.op_node_unstable_net_listen_unixpacket,
-      ),
-    },
-  });
 
   // FIXME(bartlomieju): temporarily add whole `Deno.core` to
   // `Deno[Deno.internal]` namespace. It should be removed and only necessary
@@ -502,7 +356,7 @@ function bootstrapMainRuntime(runtimeOptions) {
     // the op function that needs to be passed will be invalidated by creating
     // a snapshot
     ObjectAssign(finalDenoNs, {
-      serve: flash.createServe(ops.op_flash_serve),
+      // serve: flash.createServe(ops.op_flash_serve),
       listenDatagram: net.createListenDatagram(
         ops.op_net_listen_udp,
         ops.op_net_listen_unixpacket,

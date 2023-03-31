@@ -154,12 +154,12 @@ fn op_stdin_set_raw(
   }
 }
 
+// warn(minus_v8): signature changed since we don't have fast buffers
 #[op(fast)]
 fn op_isatty(
   state: &mut OpState,
   rid: u32,
-  out: &mut [u8],
-) -> Result<(), AnyError> {
+) -> Result<u8, AnyError> {
   StdFileResource::with_file(state, rid, move |std_file| {
     #[cfg(windows)]
     {
@@ -172,9 +172,9 @@ fn op_isatty(
       // TODO(bartlomieju):
       #[allow(clippy::undocumented_unsafe_blocks)]
       {
-        out[0] = unsafe {
+        Ok((unsafe {
           consoleapi::GetConsoleMode(handle, &mut test_mode) != FALSE
-        } as u8;
+        }) as u8)
       }
     }
     #[cfg(unix)]
@@ -184,36 +184,35 @@ fn op_isatty(
       // TODO(bartlomieju):
       #[allow(clippy::undocumented_unsafe_blocks)]
       {
-        out[0] = unsafe { libc::isatty(raw_fd as libc::c_int) == 1 } as u8;
+        Ok((unsafe { libc::isatty(raw_fd as libc::c_int) == 1 }) as u8)
       }
     }
-    Ok(())
   })
 }
 
+// warn(minus_v8): signature changed since we don't have fast buffers
 #[op(fast)]
 fn op_console_size(
   state: &mut OpState,
-  result: &mut [u32],
-) -> Result<(), AnyError> {
+) -> Result<[u32; 2], AnyError> {
   fn check_console_size(
     state: &mut OpState,
-    result: &mut [u32],
     rid: u32,
-  ) -> Result<(), AnyError> {
+  ) -> Result<[u32; 2], AnyError> {
     StdFileResource::with_file(state, rid, move |std_file| {
       let size = console_size(std_file)?;
+      let mut result = [0; 2];
       result[0] = size.cols;
       result[1] = size.rows;
-      Ok(())
+      Ok(result)
     })
   }
 
-  let mut last_result = Ok(());
+  let mut last_result = Ok([0; 2]);
   // Since stdio might be piped we try to get the size of the console for all
   // of them and return the first one that succeeds.
   for rid in [0, 1, 2] {
-    last_result = check_console_size(state, result, rid);
+    last_result = check_console_size(state, rid);
     if last_result.is_ok() {
       return last_result;
     }

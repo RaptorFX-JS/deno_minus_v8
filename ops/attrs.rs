@@ -32,6 +32,9 @@ impl Parse for Attributes {
     }
 
     let is_wasm = vars.contains(&"wasm");
+    if is_wasm {
+      unimplemented!("minus_v8: wasm ops are unsupported");
+    }
 
     Ok(Self {
       is_unstable: vars.contains(&"unstable"),

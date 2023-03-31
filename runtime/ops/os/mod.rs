@@ -11,7 +11,7 @@ use deno_core::v8;
 use deno_core::Extension;
 use deno_core::ExtensionBuilder;
 use deno_core::OpState;
-use deno_node::NODE_ENV_VAR_ALLOWLIST;
+// use deno_node::NODE_ENV_VAR_ALLOWLIST;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::env;
@@ -115,7 +115,8 @@ fn op_get_env(
   state: &mut OpState,
   key: String,
 ) -> Result<Option<String>, AnyError> {
-  let skip_permission_check = NODE_ENV_VAR_ALLOWLIST.contains(&key);
+  // let skip_permission_check = NODE_ENV_VAR_ALLOWLIST.contains(&key);
+  let skip_permission_check = false;
 
   if !skip_permission_check {
     state.borrow_mut::<PermissionsContainer>().check_env(&key)?;
@@ -300,13 +301,12 @@ struct MemoryUsage {
 
 #[op(v8)]
 fn op_runtime_memory_usage(scope: &mut v8::HandleScope) -> MemoryUsage {
-  let mut s = v8::HeapStatistics::default();
-  scope.get_heap_statistics(&mut s);
+  let usage = scope.backend.get_memory_usage();
   MemoryUsage {
-    rss: rss(),
-    heap_total: s.total_heap_size(),
-    heap_used: s.used_heap_size(),
-    external: s.external_memory(),
+    rss: usage.physical_total,
+    heap_total: usage.heap_total,
+    heap_used: usage.heap_used,
+    external: usage.external,
   }
 }
 

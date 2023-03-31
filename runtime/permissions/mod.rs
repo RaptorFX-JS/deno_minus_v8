@@ -1714,6 +1714,7 @@ impl PermissionsContainer {
   }
 }
 
+/*
 impl deno_flash::FlashPermissions for PermissionsContainer {
   #[inline(always)]
   fn check_net<T: AsRef<str>>(
@@ -1731,6 +1732,7 @@ impl deno_node::NodePermissions for PermissionsContainer {
     self.0.lock().read.check(path, None)
   }
 }
+*/
 
 impl deno_net::NetPermissions for PermissionsContainer {
   #[inline(always)]
@@ -1781,6 +1783,7 @@ impl deno_fetch::FetchPermissions for PermissionsContainer {
   }
 }
 
+/*
 impl deno_web::TimersPermission for PermissionsContainer {
   #[inline(always)]
   fn allow_hrtime(&mut self) -> bool {
@@ -1792,6 +1795,7 @@ impl deno_web::TimersPermission for PermissionsContainer {
     crate::ops::check_unstable(state, api_name);
   }
 }
+*/
 
 impl deno_websocket::WebSocketPermissions for PermissionsContainer {
   #[inline(always)]
@@ -1804,6 +1808,7 @@ impl deno_websocket::WebSocketPermissions for PermissionsContainer {
   }
 }
 
+/*
 // NOTE(bartlomieju): for now, NAPI uses `--allow-ffi` flag, but that might
 // change in the future.
 impl deno_napi::NapiPermissions for PermissionsContainer {
@@ -1819,6 +1824,7 @@ impl deno_ffi::FfiPermissions for PermissionsContainer {
     self.0.lock().ffi.check(path)
   }
 }
+*/
 
 fn unit_permission_from_flag_bool(
   flag: bool,

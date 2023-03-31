@@ -8,12 +8,10 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use anyhow::Error;
+use v8::Handle;
 
 use crate::runtime::GetErrorClassFn;
 use crate::runtime::JsRealm;
-use crate::runtime::JsRuntime;
-use crate::source_map::apply_source_map;
-use crate::source_map::get_source_line;
 use crate::url::Url;
 
 /// A generic wrapper that can encapsulate any concrete error type.
@@ -110,9 +108,9 @@ pub fn to_v8_error<'a>(
   let this = v8::undefined(tc_scope).into();
   let class = v8::String::new(tc_scope, get_class(error)).unwrap();
   let message = v8::String::new(tc_scope, &format!("{error:#}")).unwrap();
-  let mut args = vec![class.into(), message.into()];
+  let mut args = vec![class.into_value(), message.into_value()];
   if let Some(code) = crate::error_codes::get_error_code(error) {
-    args.push(v8::String::new(tc_scope, code).unwrap().into());
+    args.push(v8::String::new(tc_scope, code).unwrap().into_value());
   }
   let maybe_exception = cb.call(tc_scope, this, &args);
 
@@ -197,23 +195,6 @@ impl JsStackFrame {
   }
 }
 
-fn get_property<'a>(
-  scope: &mut v8::HandleScope<'a>,
-  object: v8::Local<v8::Object>,
-  key: &str,
-) -> Option<v8::Local<'a, v8::Value>> {
-  let key = v8::String::new(scope, key).unwrap();
-  object.get(scope, key.into())
-}
-
-#[derive(Default, serde::Deserialize)]
-pub(crate) struct NativeJsError {
-  pub name: Option<String>,
-  pub message: Option<String>,
-  // Warning! .stack is special so handled by itself
-  // stack: Option<String>,
-}
-
 impl JsError {
   pub fn from_v8_exception(
     scope: &mut v8::HandleScope,
@@ -222,6 +203,7 @@ impl JsError {
     Self::inner_from_v8_exception(scope, exception, Default::default())
   }
 
+  /*
   pub fn from_v8_message<'a>(
     scope: &'a mut v8::HandleScope,
     msg: v8::Local<'a, v8::Message>,
@@ -299,203 +281,24 @@ impl JsError {
       aggregated: None,
     }
   }
+  */
 
   fn inner_from_v8_exception<'a>(
     scope: &'a mut v8::HandleScope,
     exception: v8::Local<'a, v8::Value>,
     mut seen: HashSet<v8::Local<'a, v8::Object>>,
   ) -> Self {
-    // Create a new HandleScope because we're creating a lot of new local
-    // handles below.
-    let scope = &mut v8::HandleScope::new(scope);
-
-    let msg = v8::Exception::create_message(scope, exception);
-
-    let mut exception_message = None;
-    let context_state_rc = JsRealm::state_from_scope(scope);
-
-    let js_format_exception_cb =
-      context_state_rc.borrow().js_format_exception_cb.clone();
-    if let Some(format_exception_cb) = js_format_exception_cb {
-      let format_exception_cb = format_exception_cb.open(scope);
-      let this = v8::undefined(scope).into();
-      let formatted = format_exception_cb.call(scope, this, &[exception]);
-      if let Some(formatted) = formatted {
-        if formatted.is_string() {
-          exception_message = Some(formatted.to_rust_string_lossy(scope));
-        }
-      }
-    }
-
-    if is_instance_of_error(scope, exception) {
-      let v8_exception = exception;
-      // The exception is a JS Error object.
-      let exception: v8::Local<v8::Object> = exception.try_into().unwrap();
-      let cause = get_property(scope, exception, "cause");
-      let e: NativeJsError =
-        serde_v8::from_v8(scope, exception.into()).unwrap_or_default();
-      // Get the message by formatting error.name and error.message.
-      let name = e.name.clone().unwrap_or_else(|| "Error".to_string());
-      let message_prop = e.message.clone().unwrap_or_default();
-      let exception_message = exception_message.unwrap_or_else(|| {
-        if !name.is_empty() && !message_prop.is_empty() {
-          format!("Uncaught {name}: {message_prop}")
-        } else if !name.is_empty() {
-          format!("Uncaught {name}")
-        } else if !message_prop.is_empty() {
-          format!("Uncaught {message_prop}")
-        } else {
-          "Uncaught".to_string()
-        }
-      });
-      let cause = cause.and_then(|cause| {
-        if cause.is_undefined() || seen.contains(&exception) {
-          None
-        } else {
-          seen.insert(exception);
-          Some(Box::new(JsError::inner_from_v8_exception(
-            scope, cause, seen,
-          )))
-        }
-      });
-
-      // Access error.stack to ensure that prepareStackTrace() has been called.
-      // This should populate error.__callSiteEvals.
-      let stack = get_property(scope, exception, "stack");
-      let stack: Option<v8::Local<v8::String>> =
-        stack.and_then(|s| s.try_into().ok());
-      let stack = stack.map(|s| s.to_rust_string_lossy(scope));
-
-      // Read an array of structured frames from error.__callSiteEvals.
-      let frames_v8 = get_property(scope, exception, "__callSiteEvals");
-      // Ignore non-array values
-      let frames_v8: Option<v8::Local<v8::Array>> =
-        frames_v8.and_then(|a| a.try_into().ok());
-
-      // Convert them into Vec<JsStackFrame>
-      let mut frames: Vec<JsStackFrame> = match frames_v8 {
-        Some(frames_v8) => serde_v8::from_v8(scope, frames_v8.into()).unwrap(),
-        None => vec![],
-      };
-
-      let mut source_line = None;
-      let mut source_line_frame_index = None;
-      {
-        let state_rc = JsRuntime::state(scope);
-        let state = &mut *state_rc.borrow_mut();
-
-        // When the stack frame array is empty, but the source location given by
-        // (script_resource_name, line_number, start_column + 1) exists, this is
-        // likely a syntax error. For the sake of formatting we treat it like it
-        // was given as a single stack frame.
-        if frames.is_empty() {
-          let script_resource_name = msg
-            .get_script_resource_name(scope)
-            .and_then(|v| v8::Local::<v8::String>::try_from(v).ok())
-            .map(|v| v.to_rust_string_lossy(scope));
-          let line_number: Option<i64> =
-            msg.get_line_number(scope).and_then(|v| v.try_into().ok());
-          let column_number: Option<i64> =
-            msg.get_start_column().try_into().ok();
-          if let (Some(f), Some(l), Some(c)) =
-            (script_resource_name, line_number, column_number)
-          {
-            // V8's column numbers are 0-based, we want 1-based.
-            let c = c + 1;
-            if let Some(source_map_getter) = &state.source_map_getter {
-              let (f, l, c) = apply_source_map(
-                f,
-                l,
-                c,
-                &mut state.source_map_cache,
-                source_map_getter.as_ref(),
-              );
-              frames =
-                vec![JsStackFrame::from_location(Some(f), Some(l), Some(c))];
-            } else {
-              frames =
-                vec![JsStackFrame::from_location(Some(f), Some(l), Some(c))];
-            }
-          }
-        }
-
-        if let Some(source_map_getter) = &state.source_map_getter {
-          for (i, frame) in frames.iter().enumerate() {
-            if let (Some(file_name), Some(line_number)) =
-              (&frame.file_name, frame.line_number)
-            {
-              if !file_name.trim_start_matches('[').starts_with("internal:") {
-                source_line = get_source_line(
-                  file_name,
-                  line_number,
-                  &mut state.source_map_cache,
-                  source_map_getter.as_ref(),
-                );
-                source_line_frame_index = Some(i);
-                break;
-              }
-            }
-          }
-        } else if let Some(frame) = frames.first() {
-          if let Some(file_name) = &frame.file_name {
-            if !file_name.trim_start_matches('[').starts_with("internal:") {
-              source_line = msg
-                .get_source_line(scope)
-                .map(|v| v.to_rust_string_lossy(scope));
-              source_line_frame_index = Some(0);
-            }
-          }
-        }
-      }
-
-      let mut aggregated: Option<Vec<JsError>> = None;
-      if is_aggregate_error(scope, v8_exception) {
-        // Read an array of stored errors, this is only defined for `AggregateError`
-        let aggregated_errors = get_property(scope, exception, "errors");
-        let aggregated_errors: Option<v8::Local<v8::Array>> =
-          aggregated_errors.and_then(|a| a.try_into().ok());
-
-        if let Some(errors) = aggregated_errors {
-          if errors.length() > 0 {
-            let mut agg = vec![];
-            for i in 0..errors.length() {
-              let error = errors.get_index(scope, i).unwrap();
-              let js_error = Self::from_v8_exception(scope, error);
-              agg.push(js_error);
-            }
-            aggregated = Some(agg);
-          }
-        }
-      };
-
-      Self {
-        name: e.name,
-        message: e.message,
-        exception_message,
-        cause,
-        source_line,
-        source_line_frame_index,
-        frames,
-        stack,
-        aggregated,
-      }
-    } else {
-      let exception_message = exception_message
-        .unwrap_or_else(|| msg.get(scope).to_rust_string_lossy(scope));
-      // The exception is not a JS Error object.
-      // Get the message given by V8::Exception::create_message(), and provide
-      // empty frames.
-      Self {
-        name: None,
-        message: None,
-        exception_message,
-        cause: None,
-        source_line: None,
-        source_line_frame_index: None,
-        frames: vec![],
-        stack: None,
-        aggregated: None,
-      }
+    // TODO(minus_v8) research to what extent can we populate JsError
+    Self {
+      name: None,
+      message: None,
+      stack: None,
+      cause: None,
+      exception_message: "".into(),
+      frames: vec![],
+      source_line: None,
+      source_line_frame_index: None,
+      aggregated: None,
     }
   }
 }
@@ -561,75 +364,6 @@ pub(crate) fn to_v8_type_error(
   let message = v8::String::new(scope, &message).unwrap();
   let exception = v8::Exception::type_error(scope, message);
   v8::Global::new(scope, exception)
-}
-
-/// Implements `value instanceof primordials.Error` in JS. Similar to
-/// `Value::is_native_error()` but more closely matches the semantics
-/// of `instanceof`. `Value::is_native_error()` also checks for static class
-/// inheritance rather than just scanning the prototype chain, which doesn't
-/// work with our WebIDL implementation of `DOMException`.
-pub(crate) fn is_instance_of_error(
-  scope: &mut v8::HandleScope,
-  value: v8::Local<v8::Value>,
-) -> bool {
-  if !value.is_object() {
-    return false;
-  }
-  let message = v8::String::empty(scope);
-  let error_prototype = v8::Exception::error(scope, message)
-    .to_object(scope)
-    .unwrap()
-    .get_prototype(scope)
-    .unwrap();
-  let mut maybe_prototype =
-    value.to_object(scope).unwrap().get_prototype(scope);
-  while let Some(prototype) = maybe_prototype {
-    if !prototype.is_object() {
-      return false;
-    }
-    if prototype.strict_equals(error_prototype) {
-      return true;
-    }
-    maybe_prototype = prototype
-      .to_object(scope)
-      .and_then(|o| o.get_prototype(scope));
-  }
-  false
-}
-
-/// Implements `value instanceof primordials.AggregateError` in JS,
-/// by walking the prototype chain, and comparing each links constructor `name` property.
-///
-/// NOTE: There is currently no way to detect `AggregateError` via `rusty_v8`,
-/// as v8 itself doesn't expose `v8__Exception__AggregateError`,
-/// and we cannot create bindings for it. This forces us to rely on `name` inference.
-pub(crate) fn is_aggregate_error(
-  scope: &mut v8::HandleScope,
-  value: v8::Local<v8::Value>,
-) -> bool {
-  let mut maybe_prototype = Some(value);
-  while let Some(prototype) = maybe_prototype {
-    if !prototype.is_object() {
-      return false;
-    }
-
-    let prototype = prototype.to_object(scope).unwrap();
-    let prototype_name = match get_property(scope, prototype, "constructor") {
-      Some(constructor) => {
-        let ctor = constructor.to_object(scope).unwrap();
-        get_property(scope, ctor, "name").map(|v| v.to_rust_string_lossy(scope))
-      }
-      None => return false,
-    };
-
-    if prototype_name == Some(String::from("AggregateError")) {
-      return true;
-    }
-
-    maybe_prototype = prototype.get_prototype(scope);
-  }
-
-  false
 }
 
 const DATA_URL_ABBREV_THRESHOLD: usize = 150;

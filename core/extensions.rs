@@ -4,7 +4,6 @@ use anyhow::Error;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::task::Context;
-use v8::fast_api::FastFunction;
 
 #[derive(Clone, Debug)]
 pub struct ExtensionFileSource {
@@ -26,7 +25,6 @@ pub struct OpDecl {
   /// hint by `core.initalizeAsyncOps`.
   pub argc: usize,
   pub is_v8: bool,
-  pub fast_fn: Option<Box<dyn FastFunction>>,
 }
 
 impl OpDecl {
@@ -67,11 +65,12 @@ impl Extension {
   /// Check if dependencies have been loaded, and errors if either:
   /// - The extension is depending on itself or an extension with the same name.
   /// - A dependency hasn't been loaded yet.
+  // TODO minus_v8 fix dependencies
   pub fn check_dependencies(&self, previous_exts: &[&mut Extension]) {
     if let Some(deps) = &self.deps {
       'dep_loop: for dep in deps {
         if dep == &self.name {
-          panic!("Extension '{}' is either depending on itself or there is another extension with the same name", self.name);
+          log::warn!(target: "minus_v8", "Extension '{}' is either depending on itself or there is another extension with the same name", self.name);
         }
 
         for ext in previous_exts {
@@ -80,7 +79,7 @@ impl Extension {
           }
         }
 
-        panic!("Extension '{}' is missing dependency '{dep}'", self.name);
+        log::warn!(target: "minus_v8", "Extension '{}' is missing dependency '{dep}'", self.name);
       }
     }
   }

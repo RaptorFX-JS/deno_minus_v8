@@ -2,14 +2,14 @@
 
 const core = globalThis.Deno.core;
 const ops = core.ops;
-import * as timers from "internal:deno_web/02_timers.js";
+// import * as timers from "internal:deno_web/02_timers.js";
 import * as httpClient from "internal:deno_fetch/22_http_client.js";
-import * as console from "internal:deno_console/02_console.js";
-import * as ffi from "internal:deno_ffi/00_ffi.js";
+// import * as console from "internal:deno_console/02_console.js";
+// import * as ffi from "internal:deno_ffi/00_ffi.js";
 import * as net from "internal:deno_net/01_net.js";
 import * as tls from "internal:deno_net/02_tls.js";
 import * as http from "internal:deno_http/01_http.js";
-import * as flash from "internal:deno_flash/01_http.js";
+// import * as flash from "internal:deno_flash/01_http.js";
 import * as build from "internal:runtime/js/01_build.js";
 import * as errors from "internal:runtime/js/01_errors.js";
 import * as version from "internal:runtime/js/01_version.ts";
@@ -84,8 +84,9 @@ const denoNs = {
   errors: errors.errors,
   // TODO(kt3k): Remove this export at v2
   // See https://github.com/denoland/deno/issues/9294
-  customInspect: console.customInspect,
-  inspect: console.inspect,
+  // TODO(minus_v8) there, done /s
+  // customInspect: console.customInspect,
+  // inspect: console.inspect,
   env: os.env,
   exit: os.exit,
   execPath: os.execPath,
@@ -142,8 +143,9 @@ const denoNs = {
   kill: process.kill,
   addSignalListener: signals.addSignalListener,
   removeSignalListener: signals.removeSignalListener,
-  refTimer: timers.refTimer,
-  unrefTimer: timers.unrefTimer,
+  // TODO(minus_v8) timers
+  // refTimer: timers.refTimer,
+  // unrefTimer: timers.unrefTimer,
   osRelease: os.osRelease,
   osUptime: os.osUptime,
   hostname: os.hostname,
@@ -165,17 +167,19 @@ const denoNsUnstable = {
   createHttpClient: httpClient.createHttpClient,
   // TODO(bartlomieju): why is it needed?
   http,
-  dlopen: ffi.dlopen,
-  UnsafeCallback: ffi.UnsafeCallback,
-  UnsafePointer: ffi.UnsafePointer,
-  UnsafePointerView: ffi.UnsafePointerView,
-  UnsafeFnPointer: ffi.UnsafeFnPointer,
+  // TODO(minus_v8) ffi
+  // dlopen: ffi.dlopen,
+  // UnsafeCallback: ffi.UnsafeCallback,
+  // UnsafePointer: ffi.UnsafePointer,
+  // UnsafePointerView: ffi.UnsafePointerView,
+  // UnsafeFnPointer: ffi.UnsafeFnPointer,
   flock: fs.flock,
   flockSync: fs.flockSync,
   funlock: fs.funlock,
   funlockSync: fs.funlockSync,
   upgradeHttp: http.upgradeHttp,
-  upgradeHttpRaw: flash.upgradeHttpRaw,
+  // TODO(minus_v8) flash
+  // upgradeHttpRaw: flash.upgradeHttpRaw,
 };
 
 export { denoNs, denoNsUnstable };

@@ -40,13 +40,14 @@ pub fn op_url_parse_with_base(
   state: &mut OpState,
   href: String,
   base_href: String,
-  buf: &mut [u8],
+  buf: ZeroCopyBuf,
 ) -> u32 {
+  let mut buf: Vec<u8> = buf.into();
   let base_url = match Url::parse(&base_href) {
     Ok(url) => url,
     Err(_) => return ParseStatus::Err as u32,
   };
-  parse_url(state, href, Some(&base_url), buf)
+  parse_url(state, href, Some(&base_url), &mut buf)
 }
 
 #[repr(u32)]
@@ -65,8 +66,9 @@ pub fn op_url_get_serialization(state: &mut OpState) -> String {
 
 /// Parse `href` without a `base_url`. Fills the out `buf` with URL components.
 #[op]
-pub fn op_url_parse(state: &mut OpState, href: String, buf: &mut [u8]) -> u32 {
-  parse_url(state, href, None, buf)
+pub fn op_url_parse(state: &mut OpState, href: String, buf: ZeroCopyBuf) -> u32 {
+  let mut buf: Vec<u8> = buf.into();
+  parse_url(state, href, None, &mut buf)
 }
 
 /// `op_url_parse` and `op_url_parse_with_base` share the same implementation.
@@ -158,8 +160,9 @@ pub fn op_url_reparse(
   href: String,
   setter: u8,
   setter_value: String,
-  buf: &mut [u8],
+  buf: ZeroCopyBuf,
 ) -> u32 {
+  let mut buf: Vec<u8> = buf.into();
   let mut url = match Url::options().parse(&href) {
     Ok(url) => url,
     Err(_) => return ParseStatus::Err as u32,
@@ -200,7 +203,7 @@ pub fn op_url_reparse(
     Ok(_) => {
       let inner_url = quirks::internal_components(&url);
 
-      let buf: &mut [u32] = as_u32_slice(buf);
+      let buf: &mut [u32] = as_u32_slice(&mut buf);
       buf[0] = inner_url.scheme_end;
       buf[1] = inner_url.username_end;
       buf[2] = inner_url.host_start;

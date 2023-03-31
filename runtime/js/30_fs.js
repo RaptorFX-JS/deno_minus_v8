@@ -286,9 +286,10 @@ function parseFileInfo(response) {
   };
 }
 
+// warn(minus_v8): signature changed since we don't have fast uint32arrays
 function fstatSync(rid) {
-  ops.op_fstat_sync(rid, statBuf);
-  return statStruct(statBuf);
+  let newStatBuf = ops.op_fstat_sync(rid, statBuf.length);
+  return statStruct(new Uint32Array(newStatBuf));
 }
 
 async function fstat(rid) {
@@ -303,13 +304,14 @@ async function lstat(path) {
   return parseFileInfo(res);
 }
 
+// warn(minus_v8): signature changed since we don't have fast uint32arrays
 function lstatSync(path) {
-  ops.op_stat_sync(
+  let newStatBuf = ops.op_stat_sync(
     pathFromURL(path),
     true,
-    statBuf,
+    statBuf.length,
   );
-  return statStruct(statBuf);
+  return statStruct(new Uint32Array(newStatBuf));
 }
 
 async function stat(path) {
@@ -320,13 +322,14 @@ async function stat(path) {
   return parseFileInfo(res);
 }
 
+// warn(minus_v8): signature changed since we don't have fast uint32arrays
 function statSync(path) {
-  ops.op_stat_sync(
+  let newStatBuf = ops.op_stat_sync(
     pathFromURL(path),
     false,
-    statBuf,
+    statBuf.length,
   );
-  return statStruct(statBuf);
+  return statStruct(new Uint32Array(newStatBuf));
 }
 
 function coerceLen(len) {

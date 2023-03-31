@@ -91,7 +91,9 @@ function readSync(rid, buffer) {
     return 0;
   }
 
-  const nread = ops.op_read_sync(rid, buffer);
+  const { buf, nread } = ops.op_read_sync(rid, buffer.length);
+  // minus_v8: buffer should be a Uint8Array, and buf is truncated to nread bytes
+  buffer.set(buf);
 
   return nread === 0 ? null : nread;
 }

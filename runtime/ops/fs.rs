@@ -14,9 +14,9 @@ use deno_core::Extension;
 use deno_core::OpState;
 use deno_core::ResourceId;
 use deno_core::ZeroCopyBuf;
-use deno_crypto::rand::thread_rng;
-use deno_crypto::rand::Rng;
 use log::debug;
+use rand::thread_rng;
+use rand::Rng;
 use serde::Deserialize;
 use serde::Serialize;
 use std::borrow::Cow;
@@ -411,18 +411,20 @@ async fn op_fsync_async(
   .await
 }
 
+// warn(minus_v8): signature changed since we don't have zero-copy uint32arrays
 #[op]
 fn op_fstat_sync(
   state: &mut OpState,
   rid: ResourceId,
-  out_buf: &mut [u32],
-) -> Result<(), AnyError> {
+  out_buf_len: usize,
+) -> Result<Vec<u32>, AnyError> {
+  let mut out_buf = vec![0; out_buf_len];
   let metadata = StdFileResource::with_file(state, rid, |std_file| {
     std_file.metadata().map_err(AnyError::from)
   })?;
   let stat = get_stat(metadata);
-  stat.write(out_buf);
-  Ok(())
+  stat.write(&mut out_buf);
+  Ok(out_buf)
 }
 
 #[op]
@@ -1121,13 +1123,15 @@ pub struct StatArgs {
   lstat: bool,
 }
 
+// warn(minus_v8): signature changed since we don't have fast uint32arrays
 #[op]
 fn op_stat_sync(
   state: &mut OpState,
   path: String,
   lstat: bool,
-  out_buf: &mut [u32],
-) -> Result<(), AnyError> {
+  out_buf_len: usize,
+) -> Result<Vec<u32>, AnyError> {
+  let mut out_buf = vec![0; out_buf_len];
   let path = PathBuf::from(&path);
   state
     .borrow_mut::<PermissionsContainer>()
@@ -1142,9 +1146,9 @@ fn op_stat_sync(
   };
 
   let stat = get_stat(metadata);
-  stat.write(out_buf);
+  stat.write(&mut out_buf);
 
-  Ok(())
+  Ok(out_buf)
 }
 
 #[op]

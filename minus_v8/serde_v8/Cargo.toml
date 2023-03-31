@@ -1,0 +1,17 @@
+# Copyright 2022-2023 the RaptorFX Team
+
+[package]
+name = "serde_minus_v8"
+version = "0.82.0"
+authors = ["the RaptorFX Team"]
+edition.workspace = true
+license.workspace = true
+readme = "../README.md"
+repository.workspace = true
+description = "Namespaced serde_v8 types from minus_v8"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+v8.workspace = true

@@ -169,6 +169,7 @@ pub fn init_stdio(stdio: Stdio) -> Extension {
 
 #[cfg(unix)]
 use nix::sys::termios;
+use serde::{Deserialize, Serialize};
 
 use super::utils::TaskQueue;
 
@@ -683,32 +684,43 @@ pub fn op_print(
   })
 }
 
+#[derive(Serialize, Deserialize)]
+pub struct IOSyncResultInner {
+  buf: Vec<u8>,
+  nread: u32,
+}
+
+// warn(minus_v8): signature changed since we don't have fast buffers
+// guaranteed to return a buf truncated to nread bytes
 #[op(fast)]
 fn op_read_sync(
   state: &mut OpState,
   rid: u32,
-  buf: &mut [u8],
-) -> Result<u32, AnyError> {
-  StdFileResource::with_resource(state, rid, move |resource| {
+  buf_len: usize,
+) -> Result<IOSyncResultInner, AnyError> {
+  let mut buf = vec![0; buf_len];
+  let nread = StdFileResource::with_resource(state, rid, |resource| {
     resource.with_inner_and_metadata(|inner, _| {
       inner
-        .read(buf)
+        .read(&mut buf)
         .map(|n: usize| n as u32)
         .map_err(AnyError::from)
     })
-  })
+  })?;
+  buf.truncate(nread as usize);
+  Ok(IOSyncResultInner { buf, nread })
 }
 
 #[op(fast)]
 fn op_write_sync(
   state: &mut OpState,
   rid: u32,
-  buf: &mut [u8],
+  mut buf: Vec<u8>,
 ) -> Result<u32, AnyError> {
   StdFileResource::with_resource(state, rid, move |resource| {
     resource.with_inner_and_metadata(|inner, _| {
       inner
-        .write_and_maybe_flush(buf)
+        .write_and_maybe_flush(&mut buf)
         .map(|nwritten: usize| nwritten as u32)
         .map_err(AnyError::from)
     })
