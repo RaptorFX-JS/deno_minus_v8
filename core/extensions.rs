@@ -265,14 +265,20 @@ impl ExtensionBuilder {
 /// include_js_files!(
 ///   "01_hello.js",
 ///   "02_goodbye.js",
+///   // minus_v8: specifiers can be explicitly set
+///   "03_yeet.js" as "03_world.js",
 /// )
 /// ```
 #[macro_export]
 macro_rules! include_js_files {
-  ($($file:literal,)+) => {
+  ($($file:literal $(as $specifier:literal)?,)+) => {
     vec![
       $($crate::ExtensionFileSource {
-        specifier: $file.to_string(),
+        specifier: {
+          let mut specifier = $file;
+          $(specifier = $specifier;)?
+          specifier
+        }.to_string(),
         code: include_str!($file),
       },)+
     ]
@@ -291,14 +297,20 @@ macro_rules! include_js_files {
 ///   dir "example",
 ///   "01_hello.js",
 ///   "02_goodbye.js",
+///   // minus_v8: specifiers can be explicitly set
+///   "03_yeet.js" as "03_world.js",
 /// )
 /// ```
 #[macro_export]
 macro_rules! include_js_files_dir {
-  (dir $dir:literal, $($file:literal,)+) => {
+  (dir $dir:literal, $($file:literal $(as $specifier:literal)?,)+) => {
     vec![
       $($crate::ExtensionFileSource {
-        specifier: concat!($dir, "/", $file).to_string(),
+        specifier: {
+          let mut specifier = concat!($dir, "/", $file);
+          $(specifier = concat!($dir, "/", $specifier);)?
+          specifier
+        }.to_string(),
         code: include_str!(concat!($dir, "/", $file)),
       },)+
     ]
