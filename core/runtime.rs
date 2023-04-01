@@ -918,7 +918,7 @@ impl JsRuntime {
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
     let id = ModuleMap::load_main(module_map_rc, specifier.as_str()).await?;
-    self.v8_isolate().backend.load_module(id, specifier.as_str(), code);
+    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code);
     Ok(id)
   }
 
@@ -936,7 +936,7 @@ impl JsRuntime {
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
     let id = ModuleMap::load_side(module_map_rc, specifier.as_str()).await?;
-    self.v8_isolate().backend.load_module(id, specifier.as_str(), code);
+    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code);
     Ok(id)
   }
 

@@ -36,10 +36,12 @@ pub trait JsBackend: Downcast {
   /// Register an ESM module to be run later.
   // note: this is a function that returns a function so that this trait is object safe
   fn load_module(
-    &mut self,
-    id: i32,
-    name: &str,
-    code: Option<String>,
+    &self
+  ) -> &'static dyn Fn(
+    /*isolate:*/ &mut Isolate,
+    /*id:*/ i32,
+    /*name:*/ &str,
+    /*code:*/ Option<String>,
   );
 
   // Run a previously-registered ESM module.
@@ -117,11 +119,16 @@ pub mod test {
     }
 
     fn load_module(
-      &mut self,
-      _id: i32,
-      _name: &str,
-      _code: Option<String>,
-    ) {}
+      &self,
+    ) -> &'static dyn Fn(&mut Isolate, i32, &str, Option<String>) {
+      fn inner(
+        _isolate: &mut Isolate,
+        _id: i32,
+        _name: &str,
+        _code: Option<String>
+      ) {}
+      &inner
+    }
 
     // Run a previous-registered ESM module.
     // note: this is a function that returns a function so that this trait is object safe
