@@ -33,6 +33,24 @@ pub trait JsBackend: Downcast {
     /*source_code:*/ &str,
   ) -> Option<Value>;
 
+  /// Register an ESM module to be run later.
+  // note: this is a function that returns a function so that this trait is object safe
+  fn load_module(
+    &mut self,
+    id: i32,
+    name: &str,
+    code: Option<String>,
+  );
+
+  // Run a previously-registered ESM module.
+  // note: this is a function that returns a function so that this trait is object safe
+  fn execute_module(
+    &self,
+  ) -> &'static dyn Fn(
+    /*isolate:*/ &mut Isolate,
+    /*id:*/ i32,
+  ) -> Option<()>;
+
   /// Grabs a JS function that might be invoked repeatedly by native code.
   // note: this is a function that returns a function so that this trait is object safe
   fn grab_function(
@@ -93,6 +111,27 @@ pub mod test {
         _name: &str,
         _source_code: &str,
       ) -> Option<Value> {
+        None
+      }
+      &inner
+    }
+
+    fn load_module(
+      &mut self,
+      _id: i32,
+      _name: &str,
+      _code: Option<String>,
+    ) {}
+
+    // Run a previous-registered ESM module.
+    // note: this is a function that returns a function so that this trait is object safe
+    fn execute_module(
+      &self,
+    ) -> &'static dyn Fn(&mut Isolate, i32) -> Option<()> {
+      fn inner(
+        _isolate: &mut Isolate,
+        _id: i32,
+      ) -> Option<()> {
         None
       }
       &inner

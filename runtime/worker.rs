@@ -353,15 +353,6 @@ impl MainWorker {
   }
 
   /// Loads, instantiates and executes specified JavaScript module.
-  pub async fn execute_side_module(
-    &mut self,
-    module_specifier: &ModuleSpecifier,
-  ) -> Result<(), AnyError> {
-    let id = self.preload_side_module(module_specifier).await?;
-    self.evaluate_module(id).await
-  }
-
-  /// Loads, instantiates and executes specified JavaScript module.
   ///
   /// This module will have "import.meta.main" equal to true.
   pub async fn execute_main_module(

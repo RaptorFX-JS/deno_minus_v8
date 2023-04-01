@@ -408,7 +408,7 @@ impl JsRuntime {
         let id = runtime
           .load_side_module(
             &ModuleSpecifier::parse(&file_source.specifier)?,
-            None,
+            Some(file_source.code.to_string()),
           )
           .await?;
         let receiver = runtime.mod_evaluate(id);
@@ -873,19 +873,16 @@ impl JsRuntime {
     let module_map_rc = Self::module_map(self.v8_isolate());
 
     let module_map_borrow = module_map_rc.borrow();
-    let module = module_map_borrow
-      .by_id
-      .get(&id)
-      .expect("ModuleInfo not found");
+    if !module_map_borrow.by_id.contains_key(&id) {
+      panic!("ModuleInfo not found");
+    }
 
     let (sender, receiver) = oneshot::channel();
 
-    let specifier_escaped = serde_json::to_string(&module.name).unwrap();
     self
-      .execute_script(
-        &module.name,
-        &format!("(async () => {{ await import({}) }})()", specifier_escaped)
-      )
+      .v8_isolate()
+      .backend
+      .execute_module()(self.v8_isolate(), id)
       .expect("minus_v8: failed to import module");
 
     let scope = &mut self.handle_scope();
@@ -920,10 +917,9 @@ impl JsRuntime {
     code: Option<String>,
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
-    if let Some(_) = code {
-      todo!("minus_v8: support loading modules with code");
-    }
-    ModuleMap::load_main(module_map_rc, specifier.as_str()).await
+    let id = ModuleMap::load_main(module_map_rc, specifier.as_str()).await?;
+    self.v8_isolate().backend.load_module(id, specifier.as_str(), code);
+    Ok(id)
   }
 
   /// Asynchronously load specified ES module and all of its dependencies.
@@ -939,10 +935,9 @@ impl JsRuntime {
     code: Option<String>,
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
-    if let Some(_) = code {
-      todo!("minus_v8: support loading modules with code");
-    }
-    ModuleMap::load_side(module_map_rc, specifier.as_str()).await
+    let id = ModuleMap::load_side(module_map_rc, specifier.as_str()).await?;
+    self.v8_isolate().backend.load_module(id, specifier.as_str(), code);
+    Ok(id)
   }
 
   // TODO(minus_v8) promise rejection callback
