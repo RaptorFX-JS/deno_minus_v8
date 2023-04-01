@@ -1232,6 +1232,7 @@ dependencies = [
  "deno_net",
  "deno_tls",
  "deno_url",
+ "deno_web",
  "deno_webidl",
  "deno_websocket",
  "dlopen",

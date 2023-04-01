@@ -1,9 +1,11 @@
 // Copyright 2018-2023 the Deno authors. All rights reserved. MIT license.
 
+/*
 mod blob;
 mod compression;
 mod message_port;
 mod timers;
+*/
 
 use deno_core::error::range_error;
 use deno_core::error::type_error;
@@ -19,7 +21,7 @@ use deno_core::Extension;
 use deno_core::OpState;
 use deno_core::Resource;
 use deno_core::ResourceId;
-use deno_core::U16String;
+// use deno_core::U16String;
 use deno_core::ZeroCopyBuf;
 
 use encoding_rs::CoderResult;
@@ -32,6 +34,7 @@ use std::fmt;
 use std::path::PathBuf;
 use std::usize;
 
+/*
 use crate::blob::op_blob_create_object_url;
 use crate::blob::op_blob_create_part;
 use crate::blob::op_blob_from_object_url;
@@ -90,10 +93,10 @@ pub fn init<P: TimersPermission + 'static>(
       op_base64_atob::decl(),
       op_base64_btoa::decl(),
       op_encoding_normalize_label::decl(),
-      op_encoding_decode_single::decl(),
+      // op_encoding_decode_single::decl(),
       op_encoding_decode_utf8::decl(),
       op_encoding_new_decoder::decl(),
-      op_encoding_decode::decl(),
+      // op_encoding_decode::decl(),
       op_encoding_encode_into::decl(),
       op_encode_binary_string::decl(),
       op_blob_create_part::decl(),
@@ -125,6 +128,7 @@ pub fn init<P: TimersPermission + 'static>(
     })
     .build()
 }
+*/
 
 #[op]
 fn op_base64_decode(input: String) -> Result<ZeroCopyBuf, AnyError> {
@@ -134,12 +138,14 @@ fn op_base64_decode(input: String) -> Result<ZeroCopyBuf, AnyError> {
   Ok(s.into())
 }
 
+/*
 #[op]
 fn op_base64_atob(mut s: ByteString) -> Result<ByteString, AnyError> {
   let decoded_len = forgiving_base64_decode_inplace(&mut s)?;
   s.truncate(decoded_len);
   Ok(s)
 }
+*/
 
 /// See <https://infra.spec.whatwg.org/#forgiving-base64>
 #[inline]
@@ -169,6 +175,7 @@ fn forgiving_base64_encode(s: &[u8]) -> String {
   base64_simd::STANDARD.encode_to_string(s)
 }
 
+/*
 #[op]
 fn op_encoding_normalize_label(label: String) -> Result<String, AnyError> {
   let encoding = Encoding::for_label_no_replacement(label.as_bytes())
@@ -402,6 +409,7 @@ pub fn op_cancel_handle(state: &mut OpState) -> u32 {
 pub fn get_declaration() -> PathBuf {
   PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib.deno_web.d.ts")
 }
+*/
 
 #[derive(Debug)]
 pub struct DomExceptionQuotaExceededError {
@@ -452,4 +460,6 @@ pub fn get_error_class_name(e: &AnyError) -> Option<&'static str> {
         .map(|_| "DOMExceptionInvalidCharacterError")
     })
 }
+/*
 pub struct Location(pub Url);
+*/

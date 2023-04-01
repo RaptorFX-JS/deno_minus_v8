@@ -27,7 +27,6 @@ use log::debug;
 use deno_core::v8::backend::JsBackend;
 use deno_core::v8::Handle;
 
-use crate::js;
 use crate::ops;
 use crate::ops::io::Stdio;
 use crate::permissions::PermissionsContainer;
@@ -200,11 +199,11 @@ impl MainWorker {
     });
 
     // Internal modules
-    let mut extensions: Vec<Extension> = vec![
-      // minus_v8 polyfills
-      ops::polyfills::init(),
-      // Web APIs
-      deno_webidl::init(),
+    // Web APIs
+    let mut extensions: Vec<Extension> = vec![deno_webidl::init()];
+    // minus_v8 polyfills
+    extensions.extend(ops::polyfills::init());
+    extensions.extend([
       // deno_console::init(),
       // deno_url::init(),
       // deno_web::init::<PermissionsContainer>(
@@ -258,7 +257,7 @@ impl MainWorker {
       ops::http::init(),
       // Permissions ext (worker specific state)
       perm_ext,
-    ];
+    ]);
     // Runtime JS
     extensions.extend({
       #[path = "build.rs"]
