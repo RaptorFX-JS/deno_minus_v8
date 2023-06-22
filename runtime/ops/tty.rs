@@ -156,10 +156,7 @@ fn op_stdin_set_raw(
 
 // warn(minus_v8): signature changed since we don't have fast buffers
 #[op(fast)]
-fn op_isatty(
-  state: &mut OpState,
-  rid: u32,
-) -> Result<u8, AnyError> {
+fn op_isatty(state: &mut OpState, rid: u32) -> Result<u8, AnyError> {
   StdFileResource::with_file(state, rid, move |std_file| {
     #[cfg(windows)]
     {
@@ -172,9 +169,11 @@ fn op_isatty(
       // TODO(bartlomieju):
       #[allow(clippy::undocumented_unsafe_blocks)]
       {
-        Ok((unsafe {
-          consoleapi::GetConsoleMode(handle, &mut test_mode) != FALSE
-        }) as u8)
+        Ok(
+          (unsafe {
+            consoleapi::GetConsoleMode(handle, &mut test_mode) != FALSE
+          }) as u8,
+        )
       }
     }
     #[cfg(unix)]
@@ -192,9 +191,7 @@ fn op_isatty(
 
 // warn(minus_v8): signature changed since we don't have fast buffers
 #[op(fast)]
-fn op_console_size(
-  state: &mut OpState,
-) -> Result<[u32; 2], AnyError> {
+fn op_console_size(state: &mut OpState) -> Result<[u32; 2], AnyError> {
   fn check_console_size(
     state: &mut OpState,
     rid: u32,

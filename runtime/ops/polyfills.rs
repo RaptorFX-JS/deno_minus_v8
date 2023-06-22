@@ -1,19 +1,17 @@
-use deno_core::{Extension, include_js_files};
+use deno_core::{include_js_files, Extension};
 
 pub fn init() -> Vec<Extension> {
   vec![
     Extension::builder("deno_console")
-      .esm(include_js_files!("../../ext/console/01_colors.js" as "01_colors.js",))
+      .esm(
+        include_js_files!("../../ext/console/01_colors.js" as "01_colors.js",),
+      )
       .build(),
-
     Extension::builder("deno_url")
       .dependencies(vec!["deno_webidl"])
       .esm(include_js_files!("../js/polyfills/url_00_url.js" as "00_url.js",))
-      .ops(vec![
-        deno_url::op_url_parse_search_params::decl(),
-      ])
+      .ops(vec![deno_url::op_url_parse_search_params::decl()])
       .build(),
-
     Extension::builder("deno_web")
       .dependencies(vec!["deno_webidl", "deno_console", "deno_url"])
       .esm(include_js_files!(

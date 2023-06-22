@@ -15,6 +15,8 @@ use deno_core::error::JsError;
 use deno_core::futures::Future;
 use deno_core::located_script_name;
 use deno_core::v8;
+use deno_core::v8::backend::JsBackend;
+use deno_core::v8::Handle;
 use deno_core::Extension;
 use deno_core::GetErrorClassFn;
 use deno_core::JsRuntime;
@@ -24,8 +26,6 @@ use deno_core::RuntimeOptions;
 use deno_core::SourceMapGetter;
 use deno_tls::rustls::RootCertStore;
 use log::debug;
-use deno_core::v8::backend::JsBackend;
-use deno_core::v8::Handle;
 
 use crate::ops;
 use crate::ops::io::Stdio;
@@ -115,7 +115,6 @@ pub struct WorkerOptions {
   pub origin_storage_dir: Option<std::path::PathBuf>,
   // pub blob_store: BlobStore,
   // pub broadcast_channel: InMemoryBroadcastChannel,
-
   /// The store to use for transferring SharedArrayBuffers between isolates.
   /// If multiple isolates should have the possibility of sharing
   /// SharedArrayBuffers, they should use the same [SharedArrayBufferStore]. If

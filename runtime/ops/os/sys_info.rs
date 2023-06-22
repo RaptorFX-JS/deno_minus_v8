@@ -114,15 +114,15 @@ pub fn os_release() -> String {
   }
   #[cfg(target_os = "android")]
   {
-    use std::ffi::CString;
     use libc::__system_property_get;
+    use std::ffi::CString;
     const PROPERTY_VALUE_MAX: usize = 92;
 
     let key = CString::new("ro.build.version.sdk").unwrap();
     let mut version = [0u8; PROPERTY_VALUE_MAX];
-    let len = unsafe {
-      __system_property_get(key.as_ptr(), version.as_mut_ptr())
-    } as usize;
+    let len =
+      unsafe { __system_property_get(key.as_ptr(), version.as_mut_ptr()) }
+        as usize;
     if len == 0 {
       String::from("")
     } else {
