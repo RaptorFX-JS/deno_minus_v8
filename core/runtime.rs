@@ -153,7 +153,7 @@ impl JsRuntime {
   pub fn new(mut options: RuntimeOptions) -> Self {
     // Add builtins extension
     options
-      .extensions
+      .extensions_with_js
       .insert(0, crate::ops_builtin::init_builtins());
 
     let ops = Self::collect_ops(

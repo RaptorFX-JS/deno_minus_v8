@@ -266,6 +266,7 @@ impl MainWorker {
       yoinked_from_build_rs::not_docs::build_snapshot()
     });
     extensions.extend(std::mem::take(&mut options.extensions));
+    extensions.extend(std::mem::take(&mut options.extensions_with_js));
 
     let js_runtime = JsRuntime::new(RuntimeOptions {
       backend: options.backend,
@@ -276,8 +277,8 @@ impl MainWorker {
       //     .unwrap_or_else(js::deno_isolate_init),
       // ),
       get_error_class_fn: options.get_error_class_fn,
-      extensions,
-      extensions_with_js: options.extensions_with_js,
+      extensions: options.extensions,
+      extensions_with_js: extensions,
     });
 
     Self {
