@@ -1,2 +1,2 @@
 const DOMException = window.DOMException;
-export { DOMException };
+export default DOMException;

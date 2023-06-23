@@ -4,7 +4,10 @@ pub fn init() -> Vec<Extension> {
   vec![
     Extension::builder("deno_console")
       .esm(
-        include_js_files!("../../ext/console/01_colors.js" as "01_colors.js",),
+        include_js_files!(
+            "../../ext/console/01_colors.js" as "01_colors.js",
+            "../js/polyfills/console_02_console.js" as "02_console.js",
+        ),
       )
       .build(),
     Extension::builder("deno_url")

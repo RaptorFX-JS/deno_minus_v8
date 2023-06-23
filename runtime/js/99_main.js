@@ -32,7 +32,7 @@ import * as version from "internal:runtime/js/01_version.ts";
 import * as os from "internal:runtime/js/30_os.js";
 import * as colors from "internal:deno_console/01_colors.js";
 import * as net from "internal:deno_net/01_net.js";
-import * as performance from "internal:deno_web/15_performance.js";
+// import * as performance from "internal:deno_web/15_performance.js";
 import * as url from "internal:deno_url/00_url.js";
 import { denoNs, denoNsUnstable } from "internal:runtime/js/90_deno_ns.js";
 import { errors } from "internal:runtime/js/01_errors.js";
@@ -291,29 +291,29 @@ function bootstrapMainRuntime(runtimeOptions) {
   // If the `--location` flag isn't set, make `globalThis.location` `undefined` and
   // writable, so that they can mock it themselves if they like. If the flag was
   // set, define `globalThis.location`, using the provided value.
-  if (runtimeOptions.location == null) {
-    mainRuntimeGlobalProperties.location = {
-      writable: true,
-    };
-  } else {
-    location.setLocationHref(runtimeOptions.location);
-  }
+  // if (runtimeOptions.location == null) {
+  //   mainRuntimeGlobalProperties.location = {
+  //     writable: true,
+  //   };
+  // } else {
+  //   location.setLocationHref(runtimeOptions.location);
+  // }
 
   ObjectDefineProperties(globalThis, windowOrWorkerGlobalScope);
   if (runtimeOptions.unstableFlag) {
     ObjectDefineProperties(globalThis, unstableWindowOrWorkerGlobalScope);
   }
 
-  event.setEventTargetData(globalThis);
-  event.saveGlobalThisReference(globalThis);
+  //event.setEventTargetData(globalThis);
+  //event.saveGlobalThisReference(globalThis);
 
-  event.defineEventHandler(globalThis, "error");
-  event.defineEventHandler(globalThis, "load");
-  event.defineEventHandler(globalThis, "beforeunload");
-  event.defineEventHandler(globalThis, "unload");
-  event.defineEventHandler(globalThis, "unhandledrejection");
+  //event.defineEventHandler(globalThis, "error");
+  //event.defineEventHandler(globalThis, "load");
+  //event.defineEventHandler(globalThis, "beforeunload");
+  //event.defineEventHandler(globalThis, "unload");
+  //event.defineEventHandler(globalThis, "unhandledrejection");
 
-  core.setPromiseRejectCallback(promiseRejectCallback);
+  // core.setPromiseRejectCallback(promiseRejectCallback);
 
   const isUnloadDispatched = SymbolFor("isUnloadDispatched");
   // Stores the flag for checking whether unload is dispatched or not.
@@ -386,7 +386,7 @@ function bootstrapWorkerRuntime(
   }
 
   core.initializeAsyncOps();
-  performance.setTimeOrigin(DateNow());
+  // performance.setTimeOrigin(DateNow());
   globalThis_ = globalThis;
 
   const consoleFromV8 = globalThis.Deno.core.console;
@@ -419,14 +419,14 @@ function bootstrapWorkerRuntime(
   const consoleFromDeno = globalThis.console;
   wrapConsole(consoleFromDeno, consoleFromV8);
 
-  event.setEventTargetData(globalThis);
-  event.saveGlobalThisReference(globalThis);
+  // event.setEventTargetData(globalThis);
+  // event.saveGlobalThisReference(globalThis);
 
-  event.defineEventHandler(self, "message");
-  event.defineEventHandler(self, "error", undefined, true);
-  event.defineEventHandler(self, "unhandledrejection");
+  // event.defineEventHandler(self, "message");
+  // event.defineEventHandler(self, "error", undefined, true);
+  // event.defineEventHandler(self, "unhandledrejection");
 
-  core.setPromiseRejectCallback(promiseRejectCallback);
+  // core.setPromiseRejectCallback(promiseRejectCallback);
 
   // `Deno.exit()` is an alias to `self.close()`. Setting and exit
   // code using an op in worker context is a no-op.
@@ -441,8 +441,8 @@ function bootstrapWorkerRuntime(
 
   location.setLocationHref(runtimeOptions.location);
 
-  setNumCpus(runtimeOptions.cpuCount);
-  setLanguage(runtimeOptions.locale);
+  // setNumCpus(runtimeOptions.cpuCount);
+  // setLanguage(runtimeOptions.locale);
 
   globalThis.pollForMessages = pollForMessages;
 

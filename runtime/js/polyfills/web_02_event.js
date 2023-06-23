@@ -8,6 +8,7 @@ const {
   Symbol,
 } = window.__bootstrap.primordials;
 
+const _skipInternalInit = Symbol("[[skipSlowInit]]");
 function setEventTargetData() {
   // runtime should magically set up event target data by itself
 }
@@ -95,7 +96,25 @@ function defineEventHandler(
   });
 }
 
+const CloseEvent = window.CloseEvent;
+const CustomEvent = window.CustomEvent;
+const ErrorEvent = window.ErrorEvent;
+const Event = window.Event;
+const EventTarget = window.EventTarget;
+const MessageEvent = window.MessageEvent;
+const ProgressEvent = window.ProgressEvent;
+const PromiseRejectionEvent = window.PromiseRejectionEvent;
+
 export {
+  _skipInternalInit,
+  CloseEvent,
+  CustomEvent,
   defineEventHandler,
+  ErrorEvent,
+  Event,
+  EventTarget,
+  MessageEvent,
+  ProgressEvent,
+  PromiseRejectionEvent,
   setEventTargetData,
 };

@@ -199,7 +199,8 @@ pub mod not_docs {
         "polyfills/runtime_01_version.js" as "01_version.ts",
         "06_util.js",
         "10_permissions.js",
-        "11_workers.js",
+        // minus_v8: we don't support workers
+        // "11_workers.js",
         "12_io.js",
         "13_buffer.js",
         "30_fs.js",
