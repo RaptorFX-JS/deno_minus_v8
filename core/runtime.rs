@@ -411,7 +411,7 @@ impl JsRuntime {
             Some(file_source.code.to_string()),
           )
           .await?;
-        let receiver = runtime.mod_evaluate(id);
+        let receiver = runtime.mod_evaluate(id).await;
         poll_fn(|cx| {
           let r = runtime.poll_event_loop(cx, false);
           // TODO(bartlomieju): some code in readable-stream polyfill in `ext/node`
@@ -554,11 +554,11 @@ impl JsRuntime {
     let (recv_cb, build_custom_error_cb) = {
       let scope = &mut realm.handle_scope(self.v8_isolate());
       let recv_cb = {
-        let cb = (scope.backend.grab_function())(scope, "Deno.core.opresolve").unwrap();
+        let cb = futures::executor::block_on((scope.backend.grab_function())(scope, "Deno.core.opresolve")).unwrap();
         unsafe { v8::Local::from_raw(cb).unwrap() }
       };
       let build_custom_error_cb = {
-        let cb = (scope.backend.grab_function())(scope, "Deno.core.buildCustomError")
+        let cb = futures::executor::block_on((scope.backend.grab_function())(scope, "Deno.core.buildCustomError"))
           .expect("Deno.core.buildCustomError is undefined in the realm");
         unsafe { v8::Local::from_raw(cb).unwrap() }
       };
@@ -865,7 +865,7 @@ impl JsRuntime {
   /// checked after [`JsRuntime::run_event_loop`] completion.
   ///
   /// This function panics if module has not been instantiated.
-  pub fn mod_evaluate(
+  pub async fn mod_evaluate(
     &mut self,
     id: ModuleId,
   ) -> oneshot::Receiver<Result<(), Error>> {
@@ -882,9 +882,11 @@ impl JsRuntime {
     self
       .v8_isolate()
       .backend
-      .execute_module()(self.v8_isolate(), id)
+      .execute_module()(self.v8_isolate(), id, sender)
+      .await
       .expect("minus_v8: failed to import module");
 
+    /*
     let scope = &mut self.handle_scope();
     let tc_scope = &mut v8::TryCatch::new(scope);
     let has_dispatched_exception =
@@ -900,6 +902,7 @@ impl JsRuntime {
         generic_error("Cannot evaluate module, because JavaScript execution has been terminated.")
       )).expect("Failed to send module evaluation error.");
     }
+    */
 
     receiver
   }
@@ -918,7 +921,7 @@ impl JsRuntime {
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
     let id = ModuleMap::load_main(module_map_rc, specifier.as_str()).await?;
-    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code);
+    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code).await;
     Ok(id)
   }
 
@@ -936,7 +939,7 @@ impl JsRuntime {
   ) -> Result<ModuleId, Error> {
     let module_map_rc = Self::module_map(self.v8_isolate());
     let id = ModuleMap::load_side(module_map_rc, specifier.as_str()).await?;
-    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code);
+    self.v8_isolate().backend.load_module()(self.v8_isolate(), id, specifier.as_str(), code).await;
     Ok(id)
   }
 
@@ -1266,7 +1269,7 @@ impl JsRealm {
 
     let tc_scope = &mut v8::TryCatch::new(scope);
 
-    match (tc_scope.backend.execute_script())(tc_scope, name, source_code) {
+    match futures::executor::block_on((tc_scope.backend.execute_script())(tc_scope, name, source_code)) {
       Some(value) => {
         let value_handle = unsafe {
           v8::Global::from_raw(tc_scope, value).unwrap()

@@ -4,6 +4,10 @@ use downcast_rs::{impl_downcast, Downcast};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::ffi::c_void;
+use std::future::Future;
+use std::pin::Pin;
+use anyhow::Error;
+use futures::channel::oneshot::Sender;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,6 +17,8 @@ pub struct MemoryUsage {
   pub heap_used: usize,
   pub external: usize,
 }
+
+pub type AsyncFnOutput<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A JS backend that serves as a replacement for V8.
 pub trait JsBackend: Downcast {
@@ -27,51 +33,52 @@ pub trait JsBackend: Downcast {
   // note: this is a function that returns a function so that this trait is object safe
   fn execute_script(
     &self,
-  ) -> &'static dyn Fn(
-    /*isolate:*/ &mut Isolate,
-    /*name:*/ &str,
-    /*source_code:*/ &str,
-  ) -> Option<Value>;
+  ) -> &'static dyn for<'a> Fn(
+    /*isolate:*/ &'a mut Isolate,
+    /*name:*/ &'a str,
+    /*source_code:*/ &'a str,
+  ) -> AsyncFnOutput<'a, Option<Value>>;
 
   /// Register an ESM module to be run later.
   // note: this is a function that returns a function so that this trait is object safe
   fn load_module(
     &self
-  ) -> &'static dyn Fn(
-    /*isolate:*/ &mut Isolate,
+  ) -> &'static dyn for<'a> Fn(
+    /*isolate:*/ &'a mut Isolate,
     /*id:*/ i32,
-    /*name:*/ &str,
+    /*name:*/ &'a str,
     /*code:*/ Option<String>,
-  );
+  ) -> AsyncFnOutput<'a, ()>;
 
   // Run a previously-registered ESM module.
   // note: this is a function that returns a function so that this trait is object safe
   fn execute_module(
     &self,
-  ) -> &'static dyn Fn(
-    /*isolate:*/ &mut Isolate,
+  ) -> &'static dyn for<'a> Fn(
+    /*isolate:*/ &'a mut Isolate,
     /*id:*/ i32,
-  ) -> Option<()>;
+    /*resolve:*/ Sender<Result<(), Error>>,
+  ) -> AsyncFnOutput<'a, Option<()>>;
 
   /// Grabs a JS function that might be invoked repeatedly by native code.
   // note: this is a function that returns a function so that this trait is object safe
   fn grab_function(
     &self,
-  ) -> &'static dyn Fn(
-    /*isolate:*/ &mut Isolate,
-    /*name:*/ &str,
-  ) -> Option<Function>;
+  ) -> &'static dyn for<'a> Fn(
+    /*isolate:*/ &'a mut Isolate,
+    /*name:*/ &'a str,
+  ) -> AsyncFnOutput<'a, Option<Function>>;
 
   /// Invokes a JS function acquired with [`grab_function`] on an undefined `this`.
   // note: this is a function that returns a function so that this trait is object safe
   fn invoke_function(
     &self,
-  ) -> &'static dyn for<'s> Fn(
-    /*isolate:*/ &mut Isolate,
-    /*fun:*/ &Function,
-    /*args:*/ Vec<Box<dyn ErasedSerialize + 's>>,
+  ) -> &'static dyn for<'a> Fn(
+    /*isolate:*/ &'a mut Isolate,
+    /*fun:*/ &'a Function,
+    /*args:*/ Vec<Box<dyn ErasedSerialize + 'a>>,
   )
-    -> Option<Box<dyn ErasedDeserializer<'static>>>;
+    -> AsyncFnOutput<'a, Option<Box<dyn ErasedDeserializer<'static>>>>;
 
   /// Set an exception object to throw when control is returned to the backend.
   fn set_exception(&mut self, class: &str, message: &str);
@@ -107,26 +114,28 @@ pub mod test {
 
     fn execute_script(
       &self,
-    ) -> &'static dyn Fn(&mut Isolate, &str, &str) -> Option<Value> {
-      fn inner(
-        _isolate: &mut Isolate,
-        _name: &str,
-        _source_code: &str,
-      ) -> Option<Value> {
-        None
+    ) -> &'static dyn for<'a> Fn(&'a mut Isolate, &'a str, &'a str) -> AsyncFnOutput<'a, Option<Value>> {
+      fn inner<'a>(
+        _isolate: &'a mut Isolate,
+        _name: &'a str,
+        _source_code: &'a str,
+      ) -> AsyncFnOutput<'a, Option<Value>> {
+        Box::pin(async { None })
       }
       &inner
     }
 
     fn load_module(
       &self,
-    ) -> &'static dyn Fn(&mut Isolate, i32, &str, Option<String>) {
-      fn inner(
-        _isolate: &mut Isolate,
+    ) -> &'static dyn for<'a> Fn(&'a mut Isolate, i32, &'a str, Option<String>) -> AsyncFnOutput<'a, ()> {
+      fn inner<'a>(
+        _isolate: &'a mut Isolate,
         _id: i32,
-        _name: &str,
+        _name: &'a str,
         _code: Option<String>
-      ) {}
+      ) -> AsyncFnOutput<'a, ()> {
+        Box::pin(async { () })
+      }
       &inner
     }
 
@@ -134,40 +143,41 @@ pub mod test {
     // note: this is a function that returns a function so that this trait is object safe
     fn execute_module(
       &self,
-    ) -> &'static dyn Fn(&mut Isolate, i32) -> Option<()> {
+    ) -> &'static dyn for<'a> Fn(&'a mut Isolate, i32, Sender<Result<(), Error>>) -> AsyncFnOutput<'a, Option<()>> {
       fn inner(
         _isolate: &mut Isolate,
         _id: i32,
-      ) -> Option<()> {
-        None
+        _resolve: Sender<Result<(), Error>>,
+      ) -> AsyncFnOutput<Option<()>> {
+        Box::pin(async { None })
       }
       &inner
     }
 
     fn grab_function(
       &self,
-    ) -> &'static dyn Fn(&mut Isolate, &str) -> Option<Function> {
-      fn inner(_isolate: &mut Isolate, _name: &str) -> Option<Function> {
-        Some(Function(0))
+    ) -> &'static dyn for<'a> Fn(&'a mut Isolate, &'a str) -> AsyncFnOutput<'a, Option<Function>> {
+      fn inner<'a>(_isolate: &'a mut Isolate, _name: &'a str) -> AsyncFnOutput<'a, Option<Function>> {
+        Box::pin(async { Some(Function(0)) })
       }
       &inner
     }
 
     fn invoke_function(
       &self,
-    ) -> &'static dyn for<'s> Fn(
-      &mut Isolate,
-      &Function,
-      Vec<Box<dyn ErasedSerialize + 's>>,
-    ) -> Option<
+    ) -> &'static dyn for<'a> Fn(
+      &'a mut Isolate,
+      &'a Function,
+      Vec<Box<dyn ErasedSerialize + 'a>>,
+    ) -> AsyncFnOutput<'a, Option<
       Box<dyn ErasedDeserializer<'static>>,
-    > {
-      fn inner<'s>(
-        _isolate: &mut Isolate,
-        _fun: &Function,
-        _args: Vec<Box<dyn ErasedSerialize + 's>>,
-      ) -> Option<Box<dyn ErasedDeserializer<'static>>> {
-        None
+    >> {
+      fn inner<'a>(
+        _isolate: &'a mut Isolate,
+        _fun: &'a Function,
+        _args: Vec<Box<dyn ErasedSerialize + 'a>>,
+      ) -> AsyncFnOutput<'a, Option<Box<dyn ErasedDeserializer<'static>>>> {
+        Box::pin(async { None })
       }
       &inner
     }

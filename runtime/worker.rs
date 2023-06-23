@@ -333,7 +333,7 @@ impl MainWorker {
     id: ModuleId,
   ) -> Result<(), AnyError> {
     self.wait_for_inspector_session();
-    let mut receiver = self.js_runtime.mod_evaluate(id);
+    let mut receiver = self.js_runtime.mod_evaluate(id).await;
     tokio::select! {
       // Not using biased mode leads to non-determinism for relatively simple
       // programs.
